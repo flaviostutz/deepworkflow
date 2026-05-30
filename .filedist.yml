@@ -1,3 +1,6 @@
 version: 1
 sets:
-  - package: agentme
+  # - package: agentme@latest
+  - package: git:https://github.com/flaviostutz/agentme@main
+
+

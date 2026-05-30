@@ -41,3 +41,6 @@ clean:
 	$(MAKE) -C lib clean
 
 all: build lint test
+
+bump:
+	npx -y filedist update

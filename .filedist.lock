@@ -1,9 +1,9 @@
 version: 1
 packages:
-  agentme: 0.12.0
+  git:https://github.com/flaviostutz/agentme@main: c9ad0a08bdd3
   xdrs-core@0.28.1: 0.28.1
 sets:
-  - package: agentme
+  - package: git:https://github.com/flaviostutz/agentme@main
     output: {}
     selector: {}
 files:
@@ -48,7 +48,6 @@ files:
     - .xdrs/agentme/edrs/devops/017-tool-execution-and-scripting.md|agentme|0.12.0|file|b473bcca6786|0
     - .xdrs/agentme/edrs/devops/skills/002-monorepo-setup/SKILL.md|agentme|0.12.0|file|468ce8ad0ab2|0
     - .xdrs/agentme/edrs/governance/013-contributing-guide-requirements.md|agentme|0.12.0|file|854d5407a2e0|0
-    - .xdrs/agentme/edrs/index.md|agentme|0.12.0|file|40f34b7727e6|0
     - .xdrs/agentme/edrs/observability/011-service-health-check-endpoint.md|agentme|0.12.0|file|42d59b1d6062|0
     - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|agentme|0.12.0|file|5bfe54e8a3fe|0
     - .xdrs/agentme/edrs/principles/004-unit-test-requirements.md|agentme|0.12.0|file|7e9e80eb341d|0
@@ -91,5 +90,7 @@ files:
     - .specify/templates/tasks-template.md|agentme|0.12.0|file|18a506449799|0
     - .github/skills/001-review|xdrs-core|0.28.1|symlink|18c5f3a037d4|0
     - .github/skills/008-write-xdrs-doc|xdrs-core|0.28.1|symlink|c3a23ff52f24|0
-checksum: 2f1da726b22d
+    - .xdrs/agentme/edrs/principles/023-coding-abstraction-practices.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|e8a0e2aa248b|0
+    - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|c9214bae5c21|0
+checksum: 89e18a9dc67b
 
