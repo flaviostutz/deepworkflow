@@ -1,0 +1,78 @@
+[project]
+name = "deepworkflow"
+version = "0.1.0"
+description = "A graph of agents for processing files with map-plan-execute-judge-reduce workflow"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "deepagents>=0.6.0",
+    "langgraph>=0.4.0",
+    "langchain-openai>=0.3.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+deepworkflow = "deepworkflow.adapters.cli.main:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.0",
+    "ty>=0.0.1a0",
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pip-audit>=2.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deepworkflow"]
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+python_files = "*_test.py"
+testpaths = ["tests"]
+
+[tool.ty.rules]
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+
+[tool.coverage.run]
+data_file = ".cache/.coverage"
+
+[tool.coverage.html]
+directory = ".cache/coverage-html"
+
+[tool.uv]
+cache-dir = ".cache/uv"
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
+output-format = "grouped"
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "tests_integration"]
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+task-tags = ["TODO"]
+select = ["ERA", "FAST", "ANN", "ASYNC", "S", "BLE", "FBT", "B", "A", "COM",
+  "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FIX", "INT", "ISC", "ICN", "LOG", "G",
+  "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "SLOT", "TID",
+  "TC", "ARG", "PTH", "FLY", "I", "C90", "NPY", "PD", "N", "PERF", "E", "W",
+  "D", "F", "PGH", "PL", "UP", "FURB", "RUF", "TRY"]
+ignore = ["ANN002", "ANN003", "ANN401", "D100", "D101", "D102", "D103", "D104",
+  "D105", "D106", "D107", "COM812", "D203", "D213", "D400", "D401", "D404", "D415", "FIX002",
+  "TC001", "PLC0415"]
+
+[tool.ruff.lint.pycodestyle]
+ignore-overlong-task-comments = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S108", "ANN201", "ANN001", "PLR2004", "D", "E501", "PLC0415", "W291"]

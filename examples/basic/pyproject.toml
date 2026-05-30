@@ -1,0 +1,11 @@
+[project]
+name = "deepworkflow-example-basic"
+version = "0.1.0"
+description = "Basic example of using deepworkflow as a library"
+requires-python = ">=3.11"
+dependencies = [
+    "deepworkflow",
+]
+
+[tool.uv.sources]
+deepworkflow = { path = "../../lib/dist/deepworkflow-0.1.0-py3-none-any.whl" }
