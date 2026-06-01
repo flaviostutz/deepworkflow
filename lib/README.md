@@ -33,5 +33,5 @@ print(result)
 ### As a CLI
 
 ```bash
-deepworkflow --config workflow.yaml
+deepworkflow --config mydeepworkflow.yml
 ```

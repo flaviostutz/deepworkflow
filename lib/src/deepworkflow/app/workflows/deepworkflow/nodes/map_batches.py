@@ -47,8 +47,8 @@ On success:
   "task_overview": "Overall strategy and context for all batches...",
   "consolidation_instructions": "How to consolidate/merge results from all batches...",
   "batches": [
-    {{"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Grouping rationale and specific execution guidance..."}},
-    {{"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale and specific execution guidance..."}}
+    {{"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Grouping rationale..."}},
+    {{"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale..."}}
   ]
 }}
 
@@ -77,8 +77,8 @@ def map_batches(state: WorkflowState) -> dict:
             f"- [{fb.type.name}] {fb.file}: {fb.description}" + (f" | Proposal: {fb.proposal}" if fb.proposal else "")
             for fb in map_feedbacks
         ]
-        judge_feedback_section = (
-            "Previous batch plan was rejected by the judge. Address this feedback:\n" + "\n".join(feedback_lines)
+        judge_feedback_section = "Previous batch plan was rejected by the judge. Address this feedback:\n" + "\n".join(
+            feedback_lines
         )
 
     prompt = MAP_BATCHES_PROMPT.format(

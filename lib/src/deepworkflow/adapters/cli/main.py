@@ -17,7 +17,7 @@ def main() -> None:
         prog="deepworkflow",
         description="Run a map-plan-execute-judge-reduce workflow on files",
     )
-    parser.add_argument("--config", "-c", required=True, help="Path to YAML configuration file")
+    parser.add_argument("--config", "-c", default="deepworkflow.yml", help="Path to YAML configuration file (default: deepworkflow.yml)")
     parser.add_argument("--model", "-m", help="Override model (e.g. openai:gpt-4o)")
     parser.add_argument("--thread-id", help="Thread ID for checkpoint resume")
     parser.add_argument("--checkpoint-dir", help="Directory for SQLite checkpoint database")

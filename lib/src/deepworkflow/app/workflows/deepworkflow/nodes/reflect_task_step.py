@@ -39,9 +39,7 @@ def reflect_task_step(state: WorkflowState) -> dict:
     # Create agent and invoke with existing messages + reflect follow-up
     agent = create_workflow_agent(
         model=config.model,
-        system_prompt=workflow_role(
-            "reflect_task_step", "Identify which files were read and written during execution"
-        ),
+        system_prompt=workflow_role("reflect_task_step", "Identify which files were read and written during execution"),
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,
     )

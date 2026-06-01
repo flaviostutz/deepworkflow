@@ -11,7 +11,7 @@ Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a L
 ```bash
 pip install deepworkflow
 
-deepworkflow --config workflow.yaml
+deepworkflow --config mydeepworkflow.yml
 ```
 
 ### Library
@@ -94,10 +94,10 @@ deepworkflow supports LangGraph checkpointing for crash recovery:
 
 ```bash
 # Start with checkpointing enabled
-deepworkflow --config workflow.yaml --checkpoint-dir ./checkpoints
+deepworkflow --config mydeepworkflow.yml --checkpoint-dir ./checkpoints
 
 # Resume a crashed run
-deepworkflow --config workflow.yaml --checkpoint-dir ./checkpoints --thread-id <thread-id>
+deepworkflow --config mydeepworkflow.yml --checkpoint-dir ./checkpoints --thread-id <thread-id>
 ```
 
 ```python
@@ -122,7 +122,7 @@ result = run_workflow(config, thread_id=result.thread_id, checkpoint_dir="./chec
 | `max_failure_retries` | no | 0 | Retries on infrastructure failures |
 | `model` | no | openai:gpt-4o | LLM model identifier |
 
-Example `workflow.yaml`:
+Example `deepworkflow.yml`:
 
 ```yaml
 workspace_dir: /path/to/workspace
