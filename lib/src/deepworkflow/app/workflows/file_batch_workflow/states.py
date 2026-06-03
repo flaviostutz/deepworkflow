@@ -6,8 +6,8 @@ from deepworkflow.shared.config import WorkflowConfig
 from deepworkflow.shared.types import BatchDefinition, BatchOutput, JudgeFeedback, JudgeVerdict
 
 
-class WorkflowState(TypedDict, total=False):
-    """LangGraph state for the deepworkflow graph."""
+class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
+    """LangGraph state for the file_batch_workflow graph."""
 
     # Configuration (set once at start)
     config: WorkflowConfig

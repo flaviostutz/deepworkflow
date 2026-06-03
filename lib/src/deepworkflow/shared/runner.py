@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 
+import mlflow
 from langgraph.checkpoint.memory import MemorySaver
 
-from deepworkflow.app.workflows.deepworkflow.graph import build_graph
+from deepworkflow.app.workflows.file_batch_workflow.graph import build_file_batch_workflow
 from deepworkflow.shared.config import WorkflowConfig
 from deepworkflow.shared.types import WorkflowResult
 
@@ -29,6 +30,7 @@ def run_workflow(
 
     """
     checkpointer = None
+    mlflow.langchain.autolog()
     if checkpoint_dir:
         try:
             import sqlite3
@@ -45,27 +47,37 @@ def run_workflow(
         checkpointer = MemorySaver()
 
     resolved_thread_id = thread_id or str(uuid.uuid4())
-    graph = build_graph(checkpointer=checkpointer)
+    graph = build_file_batch_workflow(checkpointer=checkpointer)
 
     invoke_config = {"configurable": {"thread_id": resolved_thread_id}}
 
-    # If config provided, start/restart with initial state
-    if config is not None:
-        initial_state = {"config": config}
-        result = graph.invoke(initial_state, config=invoke_config)
-    else:
-        # Resume from checkpoint (no initial state)
-        result = graph.invoke(None, config=invoke_config)
+    with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}"):
+        if config is not None:
+            mlflow.log_param("model", config.model)
+            mlflow.log_param("judge_minimum", config.judge_minimum.name)
+            mlflow.log_param("judge_max_retries", config.judge_max_retries)
+            mlflow.log_param("write_option", config.task_files_write_option.value)
 
-    if result.get("error"):
+        # If config provided, start/restart with initial state
+        if config is not None:
+            initial_state = {"config": config}
+            result = graph.invoke(initial_state, config=invoke_config)
+        else:
+            # Resume from checkpoint (no initial state)
+            result = graph.invoke(None, config=invoke_config)
+
+        if result.get("error"):
+            mlflow.log_metric("success", 0)
+            return WorkflowResult(
+                thread_id=resolved_thread_id,
+                output=result.get("error", ""),
+                status="failed",
+            )
+
+        mlflow.log_metric("success", 1)
+        mlflow.log_metric("output_length", len(result.get("workflow_output", "")))
         return WorkflowResult(
             thread_id=resolved_thread_id,
-            output=result.get("error", ""),
-            status="failed",
+            output=result.get("workflow_output", ""),
+            status="completed",
         )
-
-    return WorkflowResult(
-        thread_id=resolved_thread_id,
-        output=result.get("workflow_output", ""),
-        status="completed",
-    )

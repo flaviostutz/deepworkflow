@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
 from deepworkflow.shared.prompts import workflow_role
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 CONSOLIDATE_PROMPT = """{workflow_context}
 
@@ -21,7 +21,7 @@ Batch outputs:
 Review the workspace for the combined result and produce a holistic evaluation and final output."""
 
 
-def consolidate_agent(state: WorkflowState) -> dict:
+def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
     """Consolidate all batch outputs into a final workflow output."""
     config = state["config"]
     batch_outputs = state.get("batch_outputs", [])
@@ -38,7 +38,7 @@ def consolidate_agent(state: WorkflowState) -> dict:
 
     prompt = CONSOLIDATE_PROMPT.format(
         workflow_context=workflow_role(
-            "consolidate_agent", "Consolidate all batch results into the final workflow output"
+            "reduce_consolidate_agent", "Consolidate all batch results into the final workflow output"
         ),
         consolidation_instructions=consolidation_instructions,
         batch_outputs_summary="\n".join(outputs_summary),

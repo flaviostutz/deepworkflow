@@ -12,13 +12,13 @@ def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     return "retry_or_fail"
 
 
-def check_map_retries(state: dict) -> Literal["map_batches", "fail"]:
+def check_map_retries(state: dict) -> Literal["map_batches_agent", "fail_step"]:
     """Route: retry map if retries remaining, otherwise fail."""
     config = state["config"]
     retry_count = state.get("map_retry_count", 0)
     if retry_count < config.judge_max_retries:
-        return "map_batches"
-    return "fail"
+        return "map_batches_agent"
+    return "fail_step"
 
 
 def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
@@ -30,27 +30,27 @@ def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     return "retry_or_fail"
 
 
-def check_retries(state: dict) -> Literal["plan_step", "max_retries_exceeded"]:
+def check_retries(state: dict) -> Literal["plan_batch_agent", "max_retries_exceeded"]:
     """Route: retry plan if retries remaining, otherwise handle max retries."""
     config = state["config"]
     retry_count = state.get("retry_count", 0)
     if retry_count < config.judge_max_retries:
-        return "plan_step"
+        return "plan_batch_agent"
     return "max_retries_exceeded"
 
 
-def check_max_retries_policy(state: dict) -> Literal["fail", "record_output"]:
+def check_max_retries_policy(state: dict) -> Literal["fail_step", "record_output_step"]:
     """Route: apply on_max_retries_exceeded policy."""
     config = state["config"]
     if config.on_max_retries_exceeded == OnMaxRetriesExceeded.FAIL:
-        return "fail"
-    return "record_output"
+        return "fail_step"
+    return "record_output_step"
 
 
-def next_batch(state: dict) -> Literal["plan_step", "consolidate"]:
+def next_batch(state: dict) -> Literal["plan_batch_agent", "reduce_consolidate_agent"]:
     """Route: move to next batch or proceed to consolidation."""
     batch_index = state["current_batch_index"]
     batches = state["task_file_batches"]
     if batch_index < len(batches) - 1:
-        return "plan_step"
-    return "consolidate"
+        return "plan_batch_agent"
+    return "reduce_consolidate_agent"

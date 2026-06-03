@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.deepworkflow.nodes import parse_judge_output as _parse_judge_output
+from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output as _parse_judge_output
 from deepworkflow.shared.types import JudgeVerdict
 
 

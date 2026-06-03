@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.deepworkflow.nodes.reflect_task_step import _parse_reflect_output
+from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent import _parse_reflect_output
 
 
 class TestParseReflectOutput:

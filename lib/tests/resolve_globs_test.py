@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from deepworkflow.app.workflows.deepworkflow.nodes.resolve_globs import _is_glob_pattern, resolve_globs
+from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import _is_glob_pattern, resolve_globs_step
 from deepworkflow.shared.config import WorkflowConfig
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
@@ -43,12 +43,12 @@ class TestIsGlobPattern:
 class TestResolveGlobs:
     def test_explicit_paths_kept_as_is(self):
         with tempfile.TemporaryDirectory() as td:
-            result = resolve_globs({"config": _make_config(td, ["a.py", "b.py"])})
+            result = resolve_globs_step({"config": _make_config(td, ["a.py", "b.py"])})
             assert result == {"task_files": ["a.py", "b.py"]}
 
     def test_deduplication(self):
         with tempfile.TemporaryDirectory() as td:
-            result = resolve_globs({"config": _make_config(td, ["a.py", "b.py", "a.py"])})
+            result = resolve_globs_step({"config": _make_config(td, ["a.py", "b.py", "a.py"])})
             assert result == {"task_files": ["a.py", "b.py"]}
 
     def test_glob_expansion(self):
@@ -56,15 +56,15 @@ class TestResolveGlobs:
             Path(td, "foo.py").touch()
             Path(td, "bar.py").touch()
             Path(td, "baz.txt").touch()
-            result = resolve_globs({"config": _make_config(td, ["*.py"])})
+            result = resolve_globs_step({"config": _make_config(td, ["*.py"])})
             assert sorted(result["task_files"]) == sorted([str(Path(td, "bar.py")), str(Path(td, "foo.py"))])
 
     def test_empty_result_returns_error(self):
         with tempfile.TemporaryDirectory() as td:
-            result = resolve_globs({"config": _make_config(td, ["nonexistent_*.xyz"])})
+            result = resolve_globs_step({"config": _make_config(td, ["nonexistent_*.xyz"])})
             assert "error" in result
 
     def test_line_range_preserved(self):
         with tempfile.TemporaryDirectory() as td:
-            result = resolve_globs({"config": _make_config(td, ["file.py:10-20"])})
+            result = resolve_globs_step({"config": _make_config(td, ["file.py:10-20"])})
             assert result == {"task_files": ["file.py:10-20"]}

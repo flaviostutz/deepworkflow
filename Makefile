@@ -34,7 +34,7 @@ test-examples:
 test: test-unit test-examples
 
 eval:
-	$(MAKE) -C evals/deepworkflow eval
+	$(MAKE) -C evals/file_batch_workflow eval
 
 clean:
 	rm -rf .venv .cache

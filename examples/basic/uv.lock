@@ -316,7 +316,7 @@ dependencies = [
     { name = "pyyaml" },
 ]
 wheels = [
-    { filename = "deepworkflow-0.1.0-py3-none-any.whl", hash = "sha256:f81d9b135d74aabb2fe7da11d05d9d84e49e7bf76f2fb1cc9ac7b0bec39e3391" },
+    { filename = "deepworkflow-0.1.0-py3-none-any.whl", hash = "sha256:4b84f90a4b4e4a411ca9325b6b94c630c064b4096c2fd8bf7e9b694c8b071350" },
 ]
 
 [package.metadata]

@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import mlflow
 import yaml
 
 from deepworkflow.shared.config import WorkflowConfig
@@ -17,12 +18,16 @@ def main() -> None:
         prog="deepworkflow",
         description="Run a map-plan-execute-judge-reduce workflow on files",
     )
-    parser.add_argument("--config", "-c", default="deepworkflow.yml", help="Path to YAML configuration file (default: deepworkflow.yml)")
+    parser.add_argument(
+        "--config", "-c", default="deepworkflow.yml", help="Path to YAML configuration file (default: deepworkflow.yml)"
+    )
     parser.add_argument("--model", "-m", help="Override model (e.g. openai:gpt-4o)")
     parser.add_argument("--thread-id", help="Thread ID for checkpoint resume")
     parser.add_argument("--checkpoint-dir", help="Directory for SQLite checkpoint database")
 
     args = parser.parse_args()
+
+    mlflow.langchain.autolog()
 
     config_path = Path(args.config)
     if not config_path.exists():

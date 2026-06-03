@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.app.workflows.deepworkflow.nodes import parse_judge_output
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 EVALUATE_MAP_PROMPT = """{workflow_context}
 
@@ -54,7 +54,7 @@ proposal can be empty.
 The verdict should be the WORST (lowest) type across all feedbacks."""
 
 
-def evaluate_map(state: WorkflowState) -> dict:
+def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
     """Judge the map_batches_agent output."""
     config = state["config"]
     task_files = state["task_files"]
@@ -74,7 +74,7 @@ def evaluate_map(state: WorkflowState) -> dict:
     )
 
     prompt = EVALUATE_MAP_PROMPT.format(
-        workflow_context=workflow_role("evaluate_map_agent", "Judge the quality of the batch planning step"),
+        workflow_context=workflow_role("evaluate_map_batches_agent", "Judge the quality of the batch planning step"),
         task_instructions=config.task_instructions,
         task_files="\n".join(task_files),
         file_count=len(task_files),

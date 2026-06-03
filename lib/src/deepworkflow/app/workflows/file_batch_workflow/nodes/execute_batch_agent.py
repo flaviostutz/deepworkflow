@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
 from deepworkflow.shared.prompts import workflow_role
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 EXECUTE_PROMPT = """{workflow_context}
 
@@ -35,7 +35,7 @@ Execute the plan now. If write option is 'read-only', produce analysis/report ou
 If write option allows writing, make the necessary file changes."""
 
 
-def execute_task_step(state: WorkflowState) -> dict:
+def execute_batch_agent(state: file_batch_workflow_state) -> dict:
     """Execute the plan for the current batch."""
     config = state["config"]
     batch_index = state["current_batch_index"]
@@ -59,7 +59,7 @@ def execute_task_step(state: WorkflowState) -> dict:
         )
 
     prompt = EXECUTE_PROMPT.format(
-        workflow_context=workflow_role("execute_task_step", "Execute the planned task on the current batch of files"),
+        workflow_context=workflow_role("execute_batch_agent", "Execute the planned task on the current batch of files"),
         task_instructions=config.task_instructions,
         task_overview=task_overview,
         batch_instructions=batch_instructions,
@@ -80,7 +80,7 @@ def execute_task_step(state: WorkflowState) -> dict:
     last_message = result["messages"][-1]
     execute_output = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-    # Store messages for reflect_task_step to continue the conversation
+    # Store messages for reflect_batch_agent to continue the conversation
     messages = result.get("messages", [])
 
     return {"execute_output": execute_output, "execute_messages": messages}

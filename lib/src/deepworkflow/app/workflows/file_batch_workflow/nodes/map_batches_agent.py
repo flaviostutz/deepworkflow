@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import BatchDefinition, WriteOption
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 MAP_BATCHES_PROMPT = """{workflow_context}
 
@@ -59,7 +59,7 @@ On failure (unclear instructions):
 }}"""
 
 
-def map_batches(state: WorkflowState) -> dict:
+def map_batches_agent(state: file_batch_workflow_state) -> dict:
     """Plan batch definitions using a read-only agent."""
     config = state["config"]
     task_files = state["task_files"]

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 PLAN_PROMPT = """{workflow_context}
 
@@ -33,7 +33,7 @@ Write option: {write_option}
 Produce a clear, actionable plan. Do not execute the plan — only describe what steps should be taken."""
 
 
-def plan_step(state: WorkflowState) -> dict:
+def plan_batch_agent(state: file_batch_workflow_state) -> dict:
     """Plan the execution for the current batch.
 
     Creates a fresh agent each time (including retries):
@@ -57,7 +57,7 @@ def plan_step(state: WorkflowState) -> dict:
         )
 
     prompt = PLAN_PROMPT.format(
-        workflow_context=workflow_role("plan_step", "Plan execution strategy for the current batch"),
+        workflow_context=workflow_role("plan_batch_agent", "Plan execution strategy for the current batch"),
         task_instructions=config.task_instructions,
         task_overview=task_overview,
         batch_instructions=batch_instructions,

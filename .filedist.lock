@@ -5,7 +5,8 @@ packages:
 sets:
   - package: git:https://github.com/flaviostutz/agentme@main
     output: {}
-    selector: {}
+    selector:
+      upgrade: true
 files:
   .:
     - .xdrs/_core/adrs/index.md|xdrs-core|0.28.1|file|ca7abba5dbdf|0
@@ -92,5 +93,5 @@ files:
     - .github/skills/008-write-xdrs-doc|xdrs-core|0.28.1|symlink|c3a23ff52f24|0
     - .xdrs/agentme/edrs/principles/023-coding-abstraction-practices.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|e8a0e2aa248b|0
     - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|c9214bae5c21|0
-checksum: 89e18a9dc67b
+checksum: b08f08a39179
 

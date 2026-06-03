@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.deepworkflow.graph import (
-    _fail,
-    _increment_retry,
-    _map_increment_retry,
-    _record_batch_output,
+from deepworkflow.app.workflows.file_batch_workflow.graph import (
+    fail_step,
+    increment_retry_step,
+    map_increment_retry_step,
+    record_output_step,
 )
 from deepworkflow.shared.types import BatchDefinition, JudgeVerdict
 
@@ -23,7 +23,7 @@ class TestRecordBatchOutput:
             "execute_output": "done",
             "batch_outputs": [],
         }
-        result = _record_batch_output(state)
+        result = record_output_step(state)
         assert result["current_batch_index"] == 1
         assert result["retry_count"] == 0
         assert len(result["batch_outputs"]) == 1
@@ -52,27 +52,27 @@ class TestRecordBatchOutput:
             "batch_outputs": [existing],
             "execute_output": "new",
         }
-        result = _record_batch_output(state)
+        result = record_output_step(state)
         assert len(result["batch_outputs"]) == 2
         assert result["current_batch_index"] == 2
 
 
 class TestIncrementRetry:
     def test_increments_from_zero(self):
-        assert _increment_retry({}) == {"retry_count": 1}
+        assert increment_retry_step({}) == {"retry_count": 1}
 
     def test_increments_existing(self):
-        assert _increment_retry({"retry_count": 2}) == {"retry_count": 3}
+        assert increment_retry_step({"retry_count": 2}) == {"retry_count": 3}
 
 
 class TestMapIncrementRetry:
     def test_increments_from_zero(self):
-        assert _map_increment_retry({}) == {"map_retry_count": 1}
+        assert map_increment_retry_step({}) == {"map_retry_count": 1}
 
     def test_increments_existing(self):
-        assert _map_increment_retry({"map_retry_count": 1}) == {"map_retry_count": 2}
+        assert map_increment_retry_step({"map_retry_count": 1}) == {"map_retry_count": 2}
 
 
 class TestFail:
     def test_returns_error(self):
-        assert _fail({}) == {"error": "Workflow failed"}
+        assert fail_step({}) == {"error": "Workflow failed"}

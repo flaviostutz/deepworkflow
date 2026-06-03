@@ -9,9 +9,7 @@ Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a L
 ### CLI
 
 ```bash
-pip install deepworkflow
-
-deepworkflow --config mydeepworkflow.yml
+uvx deepworkflow --config mydeepworkflow.yml
 ```
 
 ### Library
@@ -40,27 +38,30 @@ print(result.status)        # "completed" or "failed"
 
 ```mermaid
 flowchart TD
-    Start([Start]) --> ResolveGlobs[resolve_globs]
+    Start([Start]) --> ResolveGlobs[resolve_globs_step]
     ResolveGlobs --> MapBatches[map_batches_agent]
-    MapBatches --> EvalMap[evaluate_map_agent]
+    MapBatches --> EvalMap[evaluate_map_batches_agent]
     EvalMap --> MapOK{map verdict ≥\njudge_minimum?}
     MapOK -- Yes --> BatchLoop[For each batch]
-    MapOK -- No --> MapRetries{Map retries\nremaining?}
+    MapOK -- No --> MapIncrementRetry[map_increment_retry_step]
+    MapIncrementRetry --> MapRetries{Map retries\nremaining?}
     MapRetries -- Yes --> MapBatches
-    MapRetries -- No --> Fail([Fail])
-    BatchLoop --> Plan[plan_step]
-    Plan --> Execute[execute_task_step]
-    Execute --> Reflect[reflect_task_step]
-    Reflect --> Evaluate[evaluate_task_agent]
+    MapRetries -- No --> Fail([fail_step])
+    BatchLoop --> Plan[plan_batch_agent]
+    Plan --> Execute[execute_batch_agent]
+    Execute --> Reflect[reflect_batch_agent]
+    Reflect --> Evaluate[evaluate_batch_agent]
     Evaluate --> VerdictCheck{verdict ≥\njudge_minimum?}
-    VerdictCheck -- Yes --> NextBatch{More\nbatches?}
-    VerdictCheck -- No --> RetriesLeft{Retries\nremaining?}
+    VerdictCheck -- Yes --> RecordOutput[record_output_step]
+    VerdictCheck -- No --> IncrementRetry[increment_retry_step]
+    IncrementRetry --> RetriesLeft{Retries\nremaining?}
     RetriesLeft -- Yes --> Plan
-    RetriesLeft -- No --> MaxRetryPolicy{on_max_retries\n_exceeded}
+    RetriesLeft -- No --> MaxRetryPolicy[check_max_retries_policy_step]
     MaxRetryPolicy -- fail --> Fail
-    MaxRetryPolicy -- continue --> NextBatch
+    MaxRetryPolicy -- continue --> RecordOutput
+    RecordOutput --> NextBatch{More\nbatches?}
     NextBatch -- Yes --> BatchLoop
-    NextBatch -- No --> Consolidate[consolidate_agent]
+    NextBatch -- No --> Consolidate[reduce_consolidate_agent]
     Consolidate --> Output([WorkflowResult])
 ```
 
@@ -68,25 +69,25 @@ flowchart TD
 
 ### Phase 1: Map
 
-1. **resolve_globs** — Expand glob patterns in `task_files` into concrete file paths. Supports line-range suffixes (e.g. `file.py:10-50`). Fails if no files match.
+1. **resolve_globs_step** — Expand glob patterns in `task_files` into concrete file paths. Supports line-range suffixes (e.g. `file.py:10-50`). Fails if no files match.
 2. **map_batches_agent** — Read-only ReAct agent that plans the batch strategy. Given the resolved files, task instructions, and batch_size constraint, it produces:
    - `task_overview` — high-level strategy description shared with all downstream agents
    - `consolidation_instructions` — instructions for the final reduce phase
    - `batches` — list of `BatchDefinition(batch_files, batch_instructions)` groupings
-3. **evaluate_map_agent** — Read-only judge that validates the map output (completeness, disjointness, instruction quality). If rejected, map_batches retries with judge feedback.
+3. **evaluate_map_batches_agent** — Read-only judge that validates the map output (completeness, disjointness, instruction quality). If rejected, map_batches_agent retries with judge feedback.
 
 ### Phase 2: Execute (per batch)
 
 For each batch produced by the map phase:
 
-4. **plan_step** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + judge feedback (on retry).
-5. **execute_task_step** — Agent with configurable write permissions that executes the plan. Stores its message history for reflect.
-6. **reflect_task_step** — Continues the execute agent's conversation to self-report which files were read and written.
-7. **evaluate_task_agent** — Read-only judge that evaluates execution quality. If verdict < judge_minimum, the batch retries from plan_step with judge feedback.
+4. **plan_batch_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + judge feedback (on retry).
+5. **execute_batch_agent** — Agent with configurable write permissions that executes the plan. Stores its message history for reflect.
+6. **reflect_batch_agent** — Continues the execute agent's conversation to self-report which files were read and written.
+7. **evaluate_batch_agent** — Read-only judge that evaluates execution quality. If verdict < judge_minimum, the batch retries from plan_batch_agent with judge feedback.
 
 ### Phase 3: Reduce
 
-8. **consolidate_agent** — Produces the final `workflow_output` by reviewing all batch outputs using `consolidation_instructions` from the map phase.
+8. **reduce_consolidate_agent** — Produces the final `workflow_output` by reviewing all batch outputs using `consolidation_instructions` from the map phase.
 
 ## Checkpointing & Resume
 
@@ -142,12 +143,12 @@ model: openai:gpt-4o
 ### Embedding as a subgraph
 
 ```python
-from deepworkflow import build_graph
+from deepworkflow import build_file_batch_workflow
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 # Build with custom checkpointer
 checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
-graph = build_graph(checkpointer=checkpointer)
+graph = build_file_batch_workflow(checkpointer=checkpointer)
 
 # Invoke directly
 result = graph.invoke(

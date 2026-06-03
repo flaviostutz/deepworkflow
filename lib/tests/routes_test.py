@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.deepworkflow.routes import (
+from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_map_retries,
     check_map_verdict,
     check_max_retries_policy,
@@ -47,12 +47,12 @@ class TestCheckMapRetries:
     def test_retry_when_retries_remaining(self):
         config = _make_config(judge_max_retries=3)
         state = {"config": config, "map_retry_count": 1}
-        assert check_map_retries(state) == "map_batches"
+        assert check_map_retries(state) == "map_batches_agent"
 
     def test_fail_when_exhausted(self):
         config = _make_config(judge_max_retries=2)
         state = {"config": config, "map_retry_count": 2}
-        assert check_map_retries(state) == "fail"
+        assert check_map_retries(state) == "fail_step"
 
 
 class TestCheckVerdict:
@@ -76,7 +76,7 @@ class TestCheckRetries:
     def test_retry_when_retries_remaining(self):
         config = _make_config(judge_max_retries=3)
         state = {"config": config, "retry_count": 1}
-        assert check_retries(state) == "plan_step"
+        assert check_retries(state) == "plan_batch_agent"
 
     def test_max_retries_when_exhausted(self):
         config = _make_config(judge_max_retries=2)
@@ -86,19 +86,19 @@ class TestCheckRetries:
     def test_retry_when_zero_retries_used(self):
         config = _make_config(judge_max_retries=1)
         state = {"config": config, "retry_count": 0}
-        assert check_retries(state) == "plan_step"
+        assert check_retries(state) == "plan_batch_agent"
 
 
 class TestCheckMaxRetriesPolicy:
     def test_fail_policy(self):
         config = _make_config(on_max_retries_exceeded=OnMaxRetriesExceeded.FAIL)
         state = {"config": config}
-        assert check_max_retries_policy(state) == "fail"
+        assert check_max_retries_policy(state) == "fail_step"
 
     def test_continue_policy(self):
         config = _make_config(on_max_retries_exceeded=OnMaxRetriesExceeded.CONTINUE)
         state = {"config": config}
-        assert check_max_retries_policy(state) == "record_output"
+        assert check_max_retries_policy(state) == "record_output_step"
 
 
 class TestNextBatch:
@@ -109,7 +109,7 @@ class TestNextBatch:
             BatchDefinition(batch_files=["c"], batch_instructions=""),
         ]
         state = {"current_batch_index": 0, "task_file_batches": batches}
-        assert next_batch(state) == "plan_step"
+        assert next_batch(state) == "plan_batch_agent"
 
     def test_last_batch(self):
         batches = [
@@ -118,4 +118,4 @@ class TestNextBatch:
             BatchDefinition(batch_files=["c"], batch_instructions=""),
         ]
         state = {"current_batch_index": 2, "task_file_batches": batches}
-        assert next_batch(state) == "consolidate"
+        assert next_batch(state) == "reduce_consolidate_agent"

@@ -22,7 +22,7 @@ class TestBuildPermissions:
 
 class TestCreateWorkflowAgent:
     @patch("deepagents.backends.FilesystemBackend")
-    @patch("deepworkflow.shared.agent.create_deep_agent")
+    @patch("deepworkflow.adapters.connectors.deepagents_connector.create_deep_agent")
     def test_creates_agent_with_defaults(self, mock_create, mock_backend):
         mock_create.return_value = MagicMock()
         mock_backend.return_value = MagicMock()

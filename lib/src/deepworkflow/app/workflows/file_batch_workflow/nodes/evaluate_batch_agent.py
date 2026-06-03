@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.app.workflows.deepworkflow.nodes import parse_judge_output
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 EVALUATE_PROMPT = """{workflow_context}
 
@@ -52,7 +52,7 @@ The verdict should be the WORST (lowest) type across all feedbacks.
 - ERROR: Critical problems that must be fixed"""
 
 
-def evaluate_task_agent(state: WorkflowState) -> dict:
+def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
     """Evaluate the execution output using a separate judge agent."""
     config = state["config"]
     batch_index = state["current_batch_index"]
@@ -70,7 +70,7 @@ def evaluate_task_agent(state: WorkflowState) -> dict:
     )
 
     prompt = EVALUATE_PROMPT.format(
-        workflow_context=workflow_role("evaluate_task_agent", "Judge the quality of batch execution results"),
+        workflow_context=workflow_role("evaluate_batch_agent", "Judge the quality of batch execution results"),
         task_instructions=config.task_instructions,
         batch_files="\n".join(current_batch.batch_files),
         execute_output=state["execute_output"],

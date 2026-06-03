@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 # Pattern to detect glob characters (not inside line range notation like :30-40)
 _GLOB_CHARS = re.compile(r"[*?\[\]]")
@@ -21,7 +21,7 @@ def _is_glob_pattern(entry: str) -> bool:
     return bool(_GLOB_CHARS.search(base))
 
 
-def resolve_globs(state: WorkflowState) -> dict:
+def resolve_globs_step(state: file_batch_workflow_state) -> dict:
     """Expand glob patterns in task_files to concrete file paths.
 
     Explicit paths (including those with line ranges like file.py:30-40) are kept as-is.

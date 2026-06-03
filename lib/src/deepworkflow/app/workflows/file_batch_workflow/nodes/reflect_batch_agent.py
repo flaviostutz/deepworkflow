@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.agent import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
 if TYPE_CHECKING:
-    from deepworkflow.app.workflows.deepworkflow.states import WorkflowState
+    from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
 REFLECT_MESSAGE = """Now reflect on what you just did. Inspect your tool call history and identify:
 1. Which files you READ during execution (list full paths, one per line)
@@ -23,10 +23,10 @@ FILES_WRITTEN:
 If no files were read or written in a section, leave it empty after the header."""
 
 
-def reflect_task_step(state: WorkflowState) -> dict:
+def reflect_batch_agent(state: file_batch_workflow_state) -> dict:
     """Reflect on execution to identify files read and written.
 
-    Continues the same agent thread from execute_task_step by sending
+    Continues the same agent thread from execute_batch_agent by sending
     a follow-up message to the existing conversation.
     """
     config = state["config"]
@@ -39,7 +39,9 @@ def reflect_task_step(state: WorkflowState) -> dict:
     # Create agent and invoke with existing messages + reflect follow-up
     agent = create_workflow_agent(
         model=config.model,
-        system_prompt=workflow_role("reflect_task_step", "Identify which files were read and written during execution"),
+        system_prompt=workflow_role(
+            "reflect_batch_agent", "Identify which files were read and written during execution"
+        ),
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,
     )

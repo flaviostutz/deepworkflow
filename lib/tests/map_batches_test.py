@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from deepworkflow.app.workflows.deepworkflow.nodes.map_batches import _parse_map_output
+from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent import _parse_map_output
 
 
 class TestParseMapOutput:
