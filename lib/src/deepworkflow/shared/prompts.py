@@ -5,7 +5,16 @@ WORKFLOW_CONTEXT = """\
 This workflow processes files in batches:
 resolve_globs_step → map_batches_agent → evaluate_map_batches_agent
 → [per-batch: plan_batch_agent → execute_batch_agent → reflect_batch_agent → evaluate_batch_agent]
-→ reduce_consolidate_agent"""
+→ reduce_consolidate_agent
+
+== Tool Usage ==
+To accomplish your role effectively, actively use all available tools — do not rely on memory alone:
+- Shell execution: run commands to inspect the environment, execute scripts, and verify outputs
+- File grep/search: search file contents for patterns, symbols, or keywords
+- File read: read files to understand current state before making decisions
+- File write: create or modify files (only when your role/constraints permit writing)
+- Todo list: maintain a checklist to track multi-step work in progress
+- Other tools: use any additional available tools to gather context and complete the task"""
 
 
 def workflow_role(step_name: str, role_description: str) -> str:
