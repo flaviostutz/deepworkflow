@@ -4,7 +4,7 @@ A graph of agents tailored to process a large number of files without compromisi
 
 Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a LangGraph-based ReAct agent framework with filesystem support. Exposed as a Python library (LangGraph subgraph embeddable in other applications) and as a standalone CLI with config file.
 
-## Installation
+## Getting Started
 
 ```bash
 pip install deepworkflow

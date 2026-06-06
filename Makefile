@@ -23,13 +23,7 @@ test-unit:
 	$(MAKE) -C lib test-unit
 
 test-examples:
-	@for dir in examples/*/; do \
-		if [ -f "$$dir/pyproject.toml" ]; then \
-			echo "Running example: $$dir"; \
-			mise exec -- uv sync --project "$$dir" --frozen --all-extras; \
-			mise exec -- uv run --project "$$dir" python "$$dir/main.py"; \
-		fi; \
-	done
+	$(MAKE) -C examples
 
 test: test-unit
 	@echo "All tests passed!"

@@ -90,13 +90,27 @@ def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkfl
 
 
 def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Callable[[str], BaseChatModel]:
-    """Build a model factory callable from YAML config or a CLI override string."""
+    """Build a model factory callable from YAML config or a CLI override string.
+
+    API keys are read from environment variables here (the CLI adapter layer) and
+    injected explicitly into init_chat_model, satisfying agentme-edr-018 rule 02
+    (no implicit env-var config inside the application layer).
+    """
+    import os
+
     from langchain.chat_models import init_chat_model
+
+    # Collect API keys from the environment at the adapter entry-point.
+    env_api_keys: dict[str, str] = {}
+    for env_var in ("OPENAI_API_KEY", "AZURE_OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"):
+        value = os.environ.get(env_var)
+        if value:
+            env_api_keys[env_var.lower()] = value
 
     if model_override:
         # --model flag: plain "provider:model" string, same model for all agents
         def factory_override(_agent_name: str) -> BaseChatModel:
-            return init_chat_model(model_override)
+            return init_chat_model(model_override, **env_api_keys)
 
         return factory_override
 
@@ -109,8 +123,11 @@ def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Call
         )
         raise TypeError(_model_type_error)
 
+    # Env-var keys serve as fallback; explicit api_key in the config dict takes precedence.
+    merged = {**env_api_keys, **model_dict}
+
     def factory_config(_agent_name: str) -> BaseChatModel:
-        return init_chat_model(**model_dict)
+        return init_chat_model(**merged)
 
     return factory_config
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "file_batch_workflow simple eval record",
+  "description": "One evaluation record: a workflow input paired with the expected output keywords.",
+  "type": "object",
+  "required": ["input", "expected_output"],
+  "additionalProperties": false,
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": ["task_instructions", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "task_instructions": {
+          "type": "string",
+          "description": "The task_instructions string passed to DeepWorkflowConfig."
+        },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of file paths (relative to dataset workspace/) included in the evaluation run."
+        }
+      }
+    },
+    "expected_output": {
+      "type": "string",
+      "description": "Comma-separated keywords that must appear in the workflow output for the sample to pass."
+    }
+  }
+}

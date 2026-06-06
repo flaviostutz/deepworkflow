@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from deepworkflow.shared.agent import _build_permissions, create_agent
+from deepworkflow.adapters.connectors.deepagents_connector import _build_permissions, create_agent
 from deepworkflow.shared.types import WriteOption
 
 

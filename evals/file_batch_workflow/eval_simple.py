@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import mlflow
@@ -14,12 +15,13 @@ mlflow.langchain.autolog()
 
 WORKSPACE_DIR = "dataset_simple/workspace"
 EXPECTED_OUTPUT_PATH = Path("dataset_simple/expected_output.jsonl")
+EVAL_MIN_SIMILARITY = 0.5
 
 
 def _model_factory(agent_name: str):  # noqa: ARG001
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model("gpt-4o", model_provider="openai")
+    return init_chat_model("gpt-4o", model_provider="openai", api_key=os.environ["OPENAI_API_KEY"])
 
 
 CONFIG = DeepWorkflowConfig(
@@ -66,7 +68,9 @@ def run_eval() -> None:
             mlflow.log_metric("success", 1)
             mlflow.log_metric("output_length", len(result.output))
             mlflow.log_metric("similarity_score", similarity)
-            mlflow.log_metric("output_matches_expected", 1 if similarity >= 0.5 else 0)
+            mlflow.log_metric("output_matches_expected", 1 if similarity >= EVAL_MIN_SIMILARITY else 0)
+            if similarity < EVAL_MIN_SIMILARITY:
+                raise SystemExit(f"Eval failed: similarity {similarity:.2f} < {EVAL_MIN_SIMILARITY}")
         except RuntimeError as e:
             mlflow.log_metric("success", 0)
             mlflow.log_param("error", str(e))
