@@ -1,5 +1,5 @@
 [project]
-name = "deepworkflow-example-basic"
+name = "deepworkflow-example-basic-lib"
 version = "0.1.0"
 description = "Basic example of using deepworkflow as a library"
 requires-python = ">=3.11"

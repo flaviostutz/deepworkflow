@@ -1,12 +1,11 @@
 version: 1
 packages:
-  git:https://github.com/flaviostutz/agentme@main: c9ad0a08bdd3
+  git:https://github.com/flaviostutz/agentme@main: a29380f47de1
   xdrs-core@0.28.1: 0.28.1
 sets:
   - package: git:https://github.com/flaviostutz/agentme@main
     output: {}
-    selector:
-      upgrade: true
+    selector: {}
 files:
   .:
     - .xdrs/_core/adrs/index.md|xdrs-core|0.28.1|file|ca7abba5dbdf|0
@@ -36,7 +35,6 @@ files:
     - .xdrs/agentme/edrs/application/010-golang-project-tooling.md|agentme|0.12.0|file|5ee714c870b5|0
     - .xdrs/agentme/edrs/application/014-python-project-tooling.md|agentme|0.12.0|file|b242df860b80|0
     - .xdrs/agentme/edrs/application/015-cli-tool-standards.md|agentme|0.12.0|file|c0a3ab2475cf|0
-    - .xdrs/agentme/edrs/application/018-ai-agent-development-standards.md|agentme|0.12.0|file|dc74b3af2630|0
     - .xdrs/agentme/edrs/application/019-ml-dataset-structure.md|agentme|0.12.0|file|99a55826cf33|0
     - .xdrs/agentme/edrs/application/020-ai-agent-xdrs-knowledge-layer.md|agentme|0.12.0|file|0de638369dfa|0
     - .xdrs/agentme/edrs/application/021-pragmatic-hexagonal-architecture.md|agentme|0.12.0|file|98a252a0b421|0
@@ -52,7 +50,6 @@ files:
     - .xdrs/agentme/edrs/observability/011-service-health-check-endpoint.md|agentme|0.12.0|file|42d59b1d6062|0
     - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|agentme|0.12.0|file|5bfe54e8a3fe|0
     - .xdrs/agentme/edrs/principles/004-unit-test-requirements.md|agentme|0.12.0|file|7e9e80eb341d|0
-    - .xdrs/agentme/edrs/principles/007-project-quality-standards.md|agentme|0.12.0|file|a0d0a74f93c3|0
     - .xdrs/agentme/edrs/principles/009-error-handling.md|agentme|0.12.0|file|e4d691cb8a4f|0
     - .xdrs/agentme/edrs/principles/012-continuous-xdr-enrichment.md|agentme|0.12.0|file|10d150aa359e|0
     - .xdrs/agentme/edrs/principles/016-cross-language-module-structure.md|agentme|0.12.0|file|1ac9b83627c4|0
@@ -92,6 +89,9 @@ files:
     - .github/skills/001-review|xdrs-core|0.28.1|symlink|18c5f3a037d4|0
     - .github/skills/008-write-xdrs-doc|xdrs-core|0.28.1|symlink|c3a23ff52f24|0
     - .xdrs/agentme/edrs/principles/023-coding-abstraction-practices.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|e8a0e2aa248b|0
-    - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|c9214bae5c21|0
-checksum: b08f08a39179
+    - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|86e6aa58190c|file|25d644e32ca8|0
+    - .xdrs/agentme/edrs/application/018-ai-agent-development-standards.md|https://github.com/flaviostutz/agentme|a29380f47de1|file|1de6c48a05d2|0
+    - .xdrs/agentme/edrs/application/024-llm-development-standards.md|https://github.com/flaviostutz/agentme|a29380f47de1|file|26d24e5fac81|0
+    - .xdrs/agentme/edrs/principles/007-project-quality-standards.md|https://github.com/flaviostutz/agentme|a29380f47de1|file|65ad59d7bc1a|0
+checksum: c5880675dd3a
 

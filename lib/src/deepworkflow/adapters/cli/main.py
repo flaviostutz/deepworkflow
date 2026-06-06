@@ -3,13 +3,19 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import mlflow
 import yaml
 
-from deepworkflow.shared.config import WorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.runner import run_workflow
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from langchain_core.language_models import BaseChatModel
 
 
 def main() -> None:
@@ -21,7 +27,15 @@ def main() -> None:
     parser.add_argument(
         "--config", "-c", default="deepworkflow.yml", help="Path to YAML configuration file (default: deepworkflow.yml)"
     )
-    parser.add_argument("--model", "-m", help="Override model (e.g. openai:gpt-4o)")
+    parser.add_argument(
+        "--model",
+        "-m",
+        help=(
+            "Override model for all agents.  Value is a model string accepted by "
+            "langchain's init_chat_model (e.g. openai:gpt-4o).  Overrides the 'model' "
+            "dict from the config file."
+        ),
+    )
     parser.add_argument("--thread-id", help="Thread ID for checkpoint resume")
     parser.add_argument("--checkpoint-dir", help="Directory for SQLite checkpoint database")
 
@@ -52,21 +66,53 @@ def main() -> None:
         sys.exit(1)
 
 
-def _build_config(raw: dict, *, model_override: str | None = None) -> WorkflowConfig:
-    """Build WorkflowConfig from raw YAML dict."""
-    return WorkflowConfig(
+def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkflowConfig:
+    """Build DeepWorkflowConfig from raw YAML dict."""
+    model_factory = _make_model_factory(raw, model_override=model_override)
+
+    judge_min_raw = raw.get("judge_min", "WARNING")
+    task_files_raw = raw.get("task_files")
+
+    return DeepWorkflowConfig(
         workspace_dir=raw["workspace_dir"],
         task_instructions=raw["task_instructions"],
-        task_files=raw["task_files"],
-        task_files_write_option=WriteOption(raw["task_files_write_option"]),
-        judge_minimum=JudgeVerdict[raw["judge_minimum"].upper()],
+        model=model_factory,
+        workspace_write_option=WriteOption(raw["workspace_write_option"]),
         judge_max_retries=raw["judge_max_retries"],
-        on_max_retries_exceeded=OnMaxRetriesExceeded(raw["on_max_retries_exceeded"]),
+        judge_on_max_retries=OnMaxRetriesExceeded(raw["judge_on_max_retries"]),
+        task_files=task_files_raw,
+        judge_min=JudgeVerdict[judge_min_raw.upper()],
         task_files_batch_size=raw.get("task_files_batch_size"),
-        judge_instructions=raw.get("judge_instructions"),
+        judge_batch_instructions=raw.get("judge_batch_instructions"),
         max_failure_retries=raw.get("max_failure_retries", 0),
-        model=model_override or raw.get("model", "openai:gpt-4o"),
+        judge_skip=raw.get("judge_skip", False),
     )
+
+
+def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Callable[[str], BaseChatModel]:
+    """Build a model factory callable from YAML config or a CLI override string."""
+    from langchain.chat_models import init_chat_model
+
+    if model_override:
+        # --model flag: plain "provider:model" string, same model for all agents
+        def factory_override(_agent_name: str) -> BaseChatModel:
+            return init_chat_model(model_override)
+
+        return factory_override
+
+    # Config file: model key must be a dict of init_chat_model kwargs
+    model_dict: dict = raw.get("model", {})
+    if not isinstance(model_dict, dict):
+        _model_type_error = (
+            "'model' in config file must be a dict of init_chat_model kwargs, "
+            "e.g.:\n  model:\n    model: gpt-4o\n    model_provider: openai"
+        )
+        raise TypeError(_model_type_error)
+
+    def factory_config(_agent_name: str) -> BaseChatModel:
+        return init_chat_model(**model_dict)
+
+    return factory_config
 
 
 if __name__ == "__main__":

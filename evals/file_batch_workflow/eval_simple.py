@@ -7,7 +7,7 @@ from pathlib import Path
 
 import mlflow
 
-from deepworkflow import WorkflowConfig, run_workflow
+from deepworkflow import DeepWorkflowConfig, run_workflow
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
 mlflow.langchain.autolog()
@@ -15,14 +15,22 @@ mlflow.langchain.autolog()
 WORKSPACE_DIR = "dataset_simple/workspace"
 EXPECTED_OUTPUT_PATH = Path("dataset_simple/expected_output.jsonl")
 
-CONFIG = WorkflowConfig(
+
+def _model_factory(agent_name: str):  # noqa: ARG001
+    from langchain.chat_models import init_chat_model
+
+    return init_chat_model("gpt-4o", model_provider="openai")
+
+
+CONFIG = DeepWorkflowConfig(
     workspace_dir=WORKSPACE_DIR,
     task_instructions="Analyze each file and report any potential bugs or issues.",
+    model=_model_factory,
+    workspace_write_option=WriteOption.READ_ONLY,
     task_files=["**/*.py"],
-    task_files_write_option=WriteOption.READ_ONLY,
-    judge_minimum=JudgeVerdict.WARNING,
+    judge_min=JudgeVerdict.WARNING,
     judge_max_retries=1,
-    on_max_retries_exceeded=OnMaxRetriesExceeded.CONTINUE,
+    judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
 )
 
 
@@ -49,8 +57,8 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="simple-eval"):
         mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("judge_minimum", CONFIG.judge_minimum.name)
-        mlflow.log_param("write_option", CONFIG.task_files_write_option.value)
+        mlflow.log_param("judge_min", CONFIG.judge_min.name)
+        mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
 
         try:
             result = run_workflow(CONFIG)

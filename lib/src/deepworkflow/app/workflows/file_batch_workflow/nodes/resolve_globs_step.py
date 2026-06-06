@@ -24,12 +24,19 @@ def _is_glob_pattern(entry: str) -> bool:
 def resolve_globs_step(state: file_batch_workflow_state) -> dict:
     """Expand glob patterns in task_files to concrete file paths.
 
-    Explicit paths (including those with line ranges like file.py:30-40) are kept as-is.
-    Glob patterns are expanded relative to workspace_dir.
+    If ``config.task_files`` is ``None``, returns an empty list so that
+    ``map_batches_agent`` can discover the relevant files from the workspace.
+    Explicit paths (including those with line ranges like file.py:30-40) are
+    kept as-is.  Glob patterns are expanded relative to workspace_dir.
     Results are deduplicated while preserving order.
-    Fails the workflow if the resolved list is empty.
+    Fails the workflow if task_files was provided but resolves to nothing.
     """
     config = state["config"]
+
+    # When task_files is None the map agent will discover files itself
+    if config.task_files is None:
+        return {"task_files": []}
+
     workspace_dir = Path(config.workspace_dir)
     raw_files = config.task_files
 

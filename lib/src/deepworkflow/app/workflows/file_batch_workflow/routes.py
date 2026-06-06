@@ -3,11 +3,25 @@ from typing import Literal
 from deepworkflow.shared.types import OnMaxRetriesExceeded
 
 
+def route_map_judge(state: dict) -> Literal["skip", "evaluate"]:
+    """Route: skip map judge when judge_skip is True."""
+    if state["config"].judge_skip:
+        return "skip"
+    return "evaluate"
+
+
+def route_batch_judge(state: dict) -> Literal["skip", "evaluate"]:
+    """Route: skip batch judge when judge_skip is True."""
+    if state["config"].judge_skip:
+        return "skip"
+    return "evaluate"
+
+
 def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     """Route: check if the map judge verdict meets minimum threshold."""
     config = state["config"]
     verdict = state.get("map_judge_verdict")
-    if verdict is not None and verdict >= config.judge_minimum:
+    if verdict is not None and verdict >= config.judge_min:
         return "pass"
     return "retry_or_fail"
 
@@ -25,7 +39,7 @@ def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     """Route: check if task judge verdict meets minimum threshold."""
     config = state["config"]
     verdict = state["judge_verdict"]
-    if verdict >= config.judge_minimum:
+    if verdict >= config.judge_min:
         return "pass"
     return "retry_or_fail"
 
@@ -40,9 +54,9 @@ def check_retries(state: dict) -> Literal["plan_batch_agent", "max_retries_excee
 
 
 def check_max_retries_policy(state: dict) -> Literal["fail_step", "record_output_step"]:
-    """Route: apply on_max_retries_exceeded policy."""
+    """Route: apply judge_on_max_retries policy."""
     config = state["config"]
-    if config.on_max_retries_exceeded == OnMaxRetriesExceeded.FAIL:
+    if config.judge_on_max_retries == OnMaxRetriesExceeded.FAIL:
         return "fail_step"
     return "record_output_step"
 

@@ -19,9 +19,11 @@ from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_retries,
     check_verdict,
     next_batch,
+    route_batch_judge,
+    route_map_judge,
 )
 from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
-from deepworkflow.shared.types import BatchOutput
+from deepworkflow.shared.types import BatchOutput, JudgeVerdict
 
 
 def record_output_step(state: file_batch_workflow_state) -> dict:
@@ -64,6 +66,11 @@ def fail_step(state: file_batch_workflow_state) -> dict:  # noqa: ARG001
     return {"error": "Workflow failed"}
 
 
+def skip_judge_step(state: file_batch_workflow_state) -> dict:  # noqa: ARG001
+    """Skip judge evaluation: set a passing verdict so the batch is accepted immediately."""
+    return {"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []}
+
+
 def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     """Build and compile the file_batch_workflow LangGraph.
 
@@ -87,6 +94,7 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_node("execute_batch_agent", execute_batch_agent)
     builder.add_node("reflect_batch_agent", reflect_batch_agent)
     builder.add_node("evaluate_batch_agent", evaluate_batch_agent)
+    builder.add_node("skip_judge_step", skip_judge_step)
     builder.add_node("record_output_step", record_output_step)
     builder.add_node("increment_retry_step", increment_retry_step)
 
@@ -99,7 +107,13 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
 
     # --- Map phase edges ---
     builder.add_edge("resolve_globs_step", "map_batches_agent")
-    builder.add_edge("map_batches_agent", "evaluate_map_batches_agent")
+
+    # After map: route to judge or skip based on judge_skip
+    builder.add_conditional_edges(
+        "map_batches_agent",
+        route_map_judge,
+        {"evaluate": "evaluate_map_batches_agent", "skip": "plan_batch_agent"},
+    )
 
     # After map evaluation: pass → plan_batch_agent (first batch), retry → map_increment_retry_step
     builder.add_conditional_edges(
@@ -118,7 +132,14 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     # --- Execute phase edges (per batch) ---
     builder.add_edge("plan_batch_agent", "execute_batch_agent")
     builder.add_edge("execute_batch_agent", "reflect_batch_agent")
-    builder.add_edge("reflect_batch_agent", "evaluate_batch_agent")
+
+    # After reflect: route to judge or skip based on judge_skip
+    builder.add_conditional_edges(
+        "reflect_batch_agent",
+        route_batch_judge,
+        {"evaluate": "evaluate_batch_agent", "skip": "skip_judge_step"},
+    )
+    builder.add_edge("skip_judge_step", "record_output_step")
 
     # After task evaluation: check verdict
     builder.add_conditional_edges(

@@ -31,7 +31,9 @@ test-examples:
 		fi; \
 	done
 
-test: test-unit test-examples
+test: test-unit
+	@echo "All tests passed!"
+	@echo "Run make test-examples to execute example scripts. Note that some examples may require additional setup or credentials."
 
 eval:
 	$(MAKE) -C evals/file_batch_workflow eval

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
@@ -27,6 +27,13 @@ Files written: {files_written}
 {judge_instructions}
 
 Evaluate the work quality. For each file, provide feedback.
+
+Quality language convention: when evaluating criteria from task_instructions or
+judge_instructions, map the severity based on the language used:
+- MUST / REQUIRED / MANDATORY → non-compliance is an ERROR
+- SHOULD / RECOMMENDED → non-compliance is a WARNING
+- COULD / MAY / SUGGESTED → non-compliance is an INFO
+Apply this mapping when interpreting any instructions that use this language.
 
 Respond in this JSON format:
 {{
@@ -58,16 +65,7 @@ def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
     batch_index = state["current_batch_index"]
     current_batch = state["task_file_batches"][batch_index]
 
-    judge_instructions = config.judge_instructions or (
-        "Check if the task_instructions was implemented with good quality "
-        "(correctness, completeness, accuracy, consistency). Check if the content "
-        "of the output and the written files contains the features requested in "
-        "task_description, if the output follows the format/schema specified strictly. "
-        "The written files and output text should have no inconsistencies or missing "
-        "aspects that should have been taken into consideration in the execution to "
-        "make the initial task_instruction fulfilled with quality, correctness, "
-        "completeness and accuracy."
-    )
+    judge_instructions = state["judge_batch_instructions"]
 
     prompt = EVALUATE_PROMPT.format(
         workflow_context=workflow_role("evaluate_batch_agent", "Judge the quality of batch execution results"),
@@ -79,8 +77,8 @@ def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
         judge_instructions=judge_instructions,
     )
 
-    agent = create_workflow_agent(
-        model=config.model,
+    agent = create_agent(
+        model=config.model("evaluate_batch_agent"),
         system_prompt=prompt,
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,

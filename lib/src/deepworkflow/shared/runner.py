@@ -6,12 +6,12 @@ import mlflow
 from langgraph.checkpoint.memory import MemorySaver
 
 from deepworkflow.app.workflows.file_batch_workflow.graph import build_file_batch_workflow
-from deepworkflow.shared.config import WorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import WorkflowResult
 
 
 def run_workflow(
-    config: WorkflowConfig | None = None,
+    config: DeepWorkflowConfig | None = None,
     *,
     thread_id: str | None = None,
     checkpoint_dir: str | None = None,
@@ -53,10 +53,9 @@ def run_workflow(
 
     with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}"):
         if config is not None:
-            mlflow.log_param("model", config.model)
-            mlflow.log_param("judge_minimum", config.judge_minimum.name)
+            mlflow.log_param("judge_min", config.judge_min.name)
             mlflow.log_param("judge_max_retries", config.judge_max_retries)
-            mlflow.log_param("write_option", config.task_files_write_option.value)
+            mlflow.log_param("write_option", config.workspace_write_option.value)
 
         # If config provided, start/restart with initial state
         if config is not None:

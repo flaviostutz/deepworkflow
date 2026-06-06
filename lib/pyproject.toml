@@ -8,6 +8,7 @@ license = { text = "MIT" }
 dependencies = [
     "deepagents>=0.6.0",
     "langgraph>=0.4.0",
+    "langchain-core>=0.3.0",
     "langchain-openai>=0.3.0",
     "mlflow>=2.0",
     "pyyaml>=6.0",
@@ -22,6 +23,7 @@ dev = [
     "ty>=0.0.1a0",
     "pytest>=8.0",
     "pytest-cov>=6.0",
+    "pytest-mock>=3.0",
     "pip-audit>=2.7",
 ]
 
@@ -36,6 +38,7 @@ packages = ["src/deepworkflow"]
 cache_dir = ".cache/pytest"
 python_files = "*_test.py"
 testpaths = ["tests"]
+pythonpath = ["tests"]
 
 [tool.ty.rules]
 invalid-argument-type = "ignore"
@@ -77,3 +80,6 @@ ignore-overlong-task-comments = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S108", "ANN201", "ANN001", "PLR2004", "D", "E501", "PLC0415", "W291"]
+# LLM prompt strings are inherently long; PERF401 fires on conditional appends in complex validation logic
+"src/deepworkflow/app/workflows/file_batch_workflow/nodes/map_batches_agent.py" = ["E501", "ANN001"]
+"src/deepworkflow/app/workflows/file_batch_workflow/nodes/evaluate_map_batches_agent.py" = ["E501", "PERF401"]

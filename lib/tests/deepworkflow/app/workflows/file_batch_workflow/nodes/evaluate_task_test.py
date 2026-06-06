@@ -41,3 +41,16 @@ class TestParseJudgeOutput:
         verdict, feedbacks = _parse_judge_output(content)
         assert verdict == JudgeVerdict.OK
         assert feedbacks == []
+
+    def test_unknown_verdict_string_falls_back_to_error(self):
+        content = '{"judge_feedbacks": [], "judge_verdict": "UNKNOWN_LEVEL"}'
+        verdict, _ = _parse_judge_output(content)
+        assert verdict == JudgeVerdict.ERROR
+
+    def test_unknown_feedback_type_falls_back_to_error(self):
+        content = (
+            '{"judge_feedbacks": [{"file": "a.py", "type": "INVALID_TYPE", "description": "x"}], "judge_verdict": "OK"}'
+        )
+        verdict, feedbacks = _parse_judge_output(content)
+        assert verdict == JudgeVerdict.OK
+        assert feedbacks[0].type == JudgeVerdict.ERROR

@@ -7,38 +7,43 @@ from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_retries,
     check_verdict,
     next_batch,
+    route_batch_judge,
+    route_map_judge,
 )
-from deepworkflow.shared.config import WorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import BatchDefinition, JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
 
-def _make_config(**kwargs) -> WorkflowConfig:
+def _mock_model(_agent_name: str) -> None:  # type: ignore[return]
+    return None
+
+
+def _make_config(**kwargs) -> DeepWorkflowConfig:
     defaults = {
         "workspace_dir": "/tmp",
         "task_instructions": "do something",
-        "task_files": ["a.py"],
-        "task_files_write_option": WriteOption.READ_ONLY,
-        "judge_minimum": JudgeVerdict.WARNING,
+        "model": _mock_model,
+        "workspace_write_option": WriteOption.READ_ONLY,
         "judge_max_retries": 2,
-        "on_max_retries_exceeded": OnMaxRetriesExceeded.CONTINUE,
+        "judge_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
     }
     defaults.update(kwargs)
-    return WorkflowConfig(**defaults)
+    return DeepWorkflowConfig(**defaults)
 
 
 class TestCheckMapVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "map_judge_verdict": JudgeVerdict.OK}
         assert check_map_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "map_judge_verdict": JudgeVerdict.ERROR}
         assert check_map_verdict(state) == "retry_or_fail"
 
     def test_retry_when_verdict_is_none(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "map_judge_verdict": None}
         assert check_map_verdict(state) == "retry_or_fail"
 
@@ -57,17 +62,17 @@ class TestCheckMapRetries:
 
 class TestCheckVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "judge_verdict": JudgeVerdict.OK}
         assert check_verdict(state) == "pass"
 
     def test_pass_when_verdict_equals_minimum(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "judge_verdict": JudgeVerdict.WARNING}
         assert check_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        config = _make_config(judge_minimum=JudgeVerdict.WARNING)
+        config = _make_config(judge_min=JudgeVerdict.WARNING)
         state = {"config": config, "judge_verdict": JudgeVerdict.ERROR}
         assert check_verdict(state) == "retry_or_fail"
 
@@ -91,12 +96,12 @@ class TestCheckRetries:
 
 class TestCheckMaxRetriesPolicy:
     def test_fail_policy(self):
-        config = _make_config(on_max_retries_exceeded=OnMaxRetriesExceeded.FAIL)
+        config = _make_config(judge_on_max_retries=OnMaxRetriesExceeded.FAIL)
         state = {"config": config}
         assert check_max_retries_policy(state) == "fail_step"
 
     def test_continue_policy(self):
-        config = _make_config(on_max_retries_exceeded=OnMaxRetriesExceeded.CONTINUE)
+        config = _make_config(judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE)
         state = {"config": config}
         assert check_max_retries_policy(state) == "record_output_step"
 
@@ -119,3 +124,23 @@ class TestNextBatch:
         ]
         state = {"current_batch_index": 2, "task_file_batches": batches}
         assert next_batch(state) == "reduce_consolidate_agent"
+
+
+class TestRouteMapJudge:
+    def test_evaluate_when_judge_skip_false(self):
+        config = _make_config(judge_skip=False)
+        assert route_map_judge({"config": config}) == "evaluate"
+
+    def test_skip_when_judge_skip_true(self):
+        config = _make_config(judge_skip=True)
+        assert route_map_judge({"config": config}) == "skip"
+
+
+class TestRouteBatchJudge:
+    def test_evaluate_when_judge_skip_false(self):
+        config = _make_config(judge_skip=False)
+        assert route_batch_judge({"config": config}) == "evaluate"
+
+    def test_skip_when_judge_skip_true(self):
+        config = _make_config(judge_skip=True)
+        assert route_batch_judge({"config": config}) == "skip"

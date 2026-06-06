@@ -4,19 +4,23 @@ import tempfile
 from pathlib import Path
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import _is_glob_pattern, resolve_globs_step
-from deepworkflow.shared.config import WorkflowConfig
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
 
 
-def _make_config(workspace_dir: str, task_files: list[str]) -> WorkflowConfig:
-    return WorkflowConfig(
+def _mock_model(_agent_name: str) -> None:  # type: ignore[return]
+    return None
+
+
+def _make_config(workspace_dir: str, task_files: list[str] | None) -> DeepWorkflowConfig:
+    return DeepWorkflowConfig(
         workspace_dir=workspace_dir,
         task_instructions="test",
-        task_files=task_files,
-        task_files_write_option=WriteOption.READ_ONLY,
-        judge_minimum=JudgeVerdict.OK,
+        model=_mock_model,
+        workspace_write_option=WriteOption.READ_ONLY,
         judge_max_retries=0,
-        on_max_retries_exceeded=OnMaxRetriesExceeded.FAIL,
+        judge_on_max_retries=OnMaxRetriesExceeded.FAIL,
+        task_files=task_files,
     )
 
 
@@ -68,3 +72,8 @@ class TestResolveGlobs:
         with tempfile.TemporaryDirectory() as td:
             result = resolve_globs_step({"config": _make_config(td, ["file.py:10-20"])})
             assert result == {"task_files": ["file.py:10-20"]}
+
+    def test_task_files_none_returns_empty_list(self):
+        with tempfile.TemporaryDirectory() as td:
+            result = resolve_globs_step({"config": _make_config(td, None)})
+            assert result == {"task_files": []}

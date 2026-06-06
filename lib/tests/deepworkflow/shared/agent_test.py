@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from deepworkflow.shared.agent import _build_permissions, create_workflow_agent
+from deepworkflow.shared.agent import _build_permissions, create_agent
 from deepworkflow.shared.types import WriteOption
 
 
@@ -26,9 +26,10 @@ class TestCreateWorkflowAgent:
     def test_creates_agent_with_defaults(self, mock_create, mock_backend):
         mock_create.return_value = MagicMock()
         mock_backend.return_value = MagicMock()
+        mock_llm = MagicMock()
 
-        agent = create_workflow_agent(
-            model="openai:gpt-4o",
+        agent = create_agent(
+            model=mock_llm,
             system_prompt="Test prompt",
             workspace_dir="/tmp/workspace",
             write_option=WriteOption.READ_ONLY,
@@ -36,7 +37,7 @@ class TestCreateWorkflowAgent:
 
         mock_backend.assert_called_once_with(root_dir="/tmp/workspace")
         mock_create.assert_called_once_with(
-            model="openai:gpt-4o",
+            model=mock_llm,
             system_prompt="Test prompt",
             backend=mock_backend.return_value,
             permissions=[{"path": "**", "mode": "read"}],

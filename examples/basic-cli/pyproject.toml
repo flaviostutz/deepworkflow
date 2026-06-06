@@ -1,0 +1,12 @@
+[project]
+name = "deepworkflow-example-basic-cli"
+version = "0.1.0"
+description = "Basic example of using deepworkflow via CLI"
+requires-python = ">=3.11"
+dependencies = [
+    "deepworkflow",
+    "langchain-openai>=0.2.0",
+]
+
+[tool.uv.sources]
+deepworkflow = { path = "../../lib/dist/deepworkflow-0.1.0-py3-none-any.whl" }

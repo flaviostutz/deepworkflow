@@ -23,7 +23,7 @@ lint-fix:
 	mise exec -- uv run --project . pip-audit
 
 test-unit:
-	mise exec -- uv run --project . pytest --cov=src/deepworkflow --cov-branch --cov-report=term-missing --cov-fail-under=65
+	mise exec -- uv run --project . pytest --cov=src/deepworkflow --cov-branch --cov-report=term-missing --cov-fail-under=80
 
 clean:
 	rm -rf dist .cache

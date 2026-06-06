@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_agent
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
@@ -37,8 +37,8 @@ def reflect_batch_agent(state: file_batch_workflow_state) -> dict:
         return {"files_read": [], "files_written": []}
 
     # Create agent and invoke with existing messages + reflect follow-up
-    agent = create_workflow_agent(
-        model=config.model,
+    agent = create_agent(
+        model=config.model("reflect_batch_agent"),
         system_prompt=workflow_role(
             "reflect_batch_agent", "Identify which files were read and written during execution"
         ),

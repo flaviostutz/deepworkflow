@@ -15,17 +15,24 @@ uvx deepworkflow --config mydeepworkflow.yml
 ### Library
 
 ```python
-from deepworkflow import run_workflow, WorkflowConfig
+from langchain_openai import ChatOpenAI
+
+from deepworkflow import run_workflow, DeepWorkflowConfig
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
-config = WorkflowConfig(
+# model is a factory: called with the agent name, returns a BaseChatModel
+def model_factory(agent_name: str):
+    return ChatOpenAI(model="gpt-4o")
+
+config = DeepWorkflowConfig(
     workspace_dir="/path/to/workspace",
     task_instructions="Review each file for security issues and report findings",
-    task_files=["src/**/*.py"],
-    task_files_write_option=WriteOption.READ_ONLY,
-    judge_minimum=JudgeVerdict.WARNING,
+    model=model_factory,
+    workspace_write_option=WriteOption.READ_ONLY,
+    judge_min=JudgeVerdict.WARNING,
     judge_max_retries=2,
-    on_max_retries_exceeded=OnMaxRetriesExceeded.CONTINUE,
+    judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    # task_files=["src/**/*.py"],  # Omit to let the agent discover files
 )
 
 result = run_workflow(config)
@@ -34,15 +41,52 @@ print(result.thread_id)     # For checkpoint resume
 print(result.status)        # "completed" or "failed"
 ```
 
+## Model Configuration
+
+The `model` parameter is a **required factory function** `Callable[[str], BaseChatModel]`. It is called once per agent with the agent's name, allowing you to route different agents to different models:
+
+```python
+from langchain.chat_models import init_chat_model
+from langchain_openai import ChatOpenAI
+
+# Option 1: Same model for all agents
+config = DeepWorkflowConfig(
+    model=lambda _: ChatOpenAI(model="gpt-4o"),
+    ...
+)
+
+# Option 2: Use init_chat_model (supports any provider)
+config = DeepWorkflowConfig(
+    model=lambda _: init_chat_model("gpt-4o", model_provider="openai"),
+    ...
+)
+
+# Option 3: Route by agent name
+AGENT_MODELS = {
+    "evaluate_batch_agent": "gpt-4o-mini",
+    "evaluate_map_batches_agent": "gpt-4o-mini",
+}
+
+def model_factory(agent_name: str):
+    model_id = AGENT_MODELS.get(agent_name, "gpt-4o")
+    return init_chat_model(model_id, model_provider="openai")
+
+config = DeepWorkflowConfig(model=model_factory, ...)
+```
+
+Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_agent`, `reduce_consolidate_agent`.
+
 ## Workflow Diagram
 
 ```mermaid
-flowchart TD
+graph TD
     Start([Start]) --> ResolveGlobs[resolve_globs_step]
     ResolveGlobs --> MapBatches[map_batches_agent]
-    MapBatches --> EvalMap[evaluate_map_batches_agent]
-    EvalMap --> MapOK{map verdict ≥\njudge_minimum?}
-    MapOK -- Yes --> BatchLoop[For each batch]
+    MapBatches --> JudgeSkipMap{judge_skip?}
+    JudgeSkipMap -- No --> EvalMap[evaluate_map_batches_agent]
+    JudgeSkipMap -- Yes --> BatchLoop[For each batch]
+    EvalMap --> MapOK{map verdict ≥\njudge_min?}
+    MapOK -- Yes --> BatchLoop
     MapOK -- No --> MapIncrementRetry[map_increment_retry_step]
     MapIncrementRetry --> MapRetries{Map retries\nremaining?}
     MapRetries -- Yes --> MapBatches
@@ -50,9 +94,12 @@ flowchart TD
     BatchLoop --> Plan[plan_batch_agent]
     Plan --> Execute[execute_batch_agent]
     Execute --> Reflect[reflect_batch_agent]
-    Reflect --> Evaluate[evaluate_batch_agent]
-    Evaluate --> VerdictCheck{verdict ≥\njudge_minimum?}
-    VerdictCheck -- Yes --> RecordOutput[record_output_step]
+    Reflect --> JudgeSkipBatch{judge_skip?}
+    JudgeSkipBatch -- No --> Evaluate[evaluate_batch_agent]
+    JudgeSkipBatch -- Yes --> SkipJudge2[skip_judge_step]
+    Evaluate --> VerdictCheck{verdict ≥\njudge_min?}
+    SkipJudge2 --> RecordOutput[record_output_step]
+    VerdictCheck -- Yes --> RecordOutput
     VerdictCheck -- No --> IncrementRetry[increment_retry_step]
     IncrementRetry --> RetriesLeft{Retries\nremaining?}
     RetriesLeft -- Yes --> Plan
@@ -112,30 +159,33 @@ result = run_workflow(config, thread_id=result.thread_id, checkpoint_dir="./chec
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `workspace_dir` | yes | — | Filesystem root for the agents |
-| `task_instructions` | yes | — | Single string describing the task to perform |
-| `task_files` | yes | — | List of file paths/globs to process (supports line ranges like `file.py:10-50`) |
-| `task_files_write_option` | yes | — | `read-only`, `write-any`, or `write-only-task-files` |
-| `task_files_batch_size` | no | all | Max files per batch (map agent decides grouping) |
-| `judge_instructions` | no | standard | Custom evaluation criteria for the judge |
-| `judge_minimum` | yes | — | Minimum quality: OK, INFO, WARNING, ERROR |
+| `task_instructions` | yes | — | String describing the task to perform |
+| `model` | yes | — | Factory `Callable[[str], BaseChatModel]`; called with agent name |
+| `workspace_write_option` | yes | — | `read-only`, `write-any`, or `write-only-task-files` |
 | `judge_max_retries` | yes | — | Max retries when judge rejects |
-| `on_max_retries_exceeded` | yes | — | `fail` or `continue` |
+| `judge_on_max_retries` | yes | — | `fail` or `continue` |
+| `task_files` | no | None | File paths/globs to process (supports line ranges). Omit to let agent discover files |
+| `task_files_batch_size` | no | all | Max files per batch (map agent decides grouping) |
+| `judge_min` | no | WARNING | Minimum quality: OK, INFO, WARNING, ERROR |
+| `judge_batch_instructions` | no | standard | Custom evaluation criteria for the judge |
+| `judge_skip` | no | false | Skip all judge steps (useful for fast iteration) |
 | `max_failure_retries` | no | 0 | Retries on infrastructure failures |
-| `model` | no | openai:gpt-4o | LLM model identifier |
 
 Example `deepworkflow.yml`:
 
 ```yaml
 workspace_dir: /path/to/workspace
 task_instructions: "Review each file for security issues and report findings"
-task_files:
-  - "src/**/*.py"
-  - "lib/**/*.py"
-task_files_write_option: read-only
-judge_minimum: WARNING
+# model must be a dict of init_chat_model() kwargs
+model:
+  model: gpt-4o
+  model_provider: openai
+workspace_write_option: read-only
+judge_min: WARNING
 judge_max_retries: 2
-on_max_retries_exceeded: continue
-model: openai:gpt-4o
+judge_on_max_retries: continue
+# task_files:  # Omit to let the agent discover files
+#   - "src/**/*.py"
 ```
 
 ## Library Usage (Advanced)

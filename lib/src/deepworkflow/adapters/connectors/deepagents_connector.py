@@ -1,25 +1,29 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from deepagents import create_deep_agent
 
 from deepworkflow.shared.types import WriteOption
 
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
+    from langgraph.graph.state import CompiledStateGraph
 
-def create_workflow_agent(
+
+def create_agent(
     *,
-    model: str,
+    model: BaseChatModel,
     system_prompt: str,
     workspace_dir: str,
     write_option: WriteOption = WriteOption.READ_ONLY,
-) -> Any:
+) -> CompiledStateGraph:
     """Create a deepagent configured for use within the workflow.
 
-    Outbound connector that initialises a deepagents ReAct agent backed by a
-    sandboxed filesystem. Supports both OpenAI and Azure OpenAI providers; the
-    provider is selected via environment variables (OPENAI_API_TYPE=azure for
-    Azure, omit for OpenAI).
+    Accepts a pre-initialised LangChain ``BaseChatModel`` instance, which is
+    obtained by calling ``config.model(agent_name)`` at the call site.  This
+    allows callers to supply any LangChain-compatible LLM without relying on
+    environment-variable-based provider detection.
     """
     from deepagents.backends import FilesystemBackend
 

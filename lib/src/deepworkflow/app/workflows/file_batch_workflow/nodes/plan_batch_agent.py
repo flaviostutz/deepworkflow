@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.adapters.connectors.deepagents_connector import create_workflow_agent
+from deepworkflow.adapters.connectors.deepagents_connector import create_agent
 from deepworkflow.shared.prompts import workflow_role
 from deepworkflow.shared.types import WriteOption
 
@@ -62,12 +62,12 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
         task_overview=task_overview,
         batch_instructions=batch_instructions,
         batch_files="\n".join(current_batch.batch_files),
-        write_option=config.task_files_write_option.value,
+        write_option=config.workspace_write_option.value,
         judge_feedback_section=judge_feedback_section,
     )
 
-    agent = create_workflow_agent(
-        model=config.model,
+    agent = create_agent(
+        model=config.model("plan_batch_agent"),
         system_prompt=prompt,
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,

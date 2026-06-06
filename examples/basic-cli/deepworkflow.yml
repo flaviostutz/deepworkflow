@@ -1,0 +1,17 @@
+workspace_dir: "."
+task_instructions: "List all Python files and summarize their purpose."
+
+# model must be a dict of init_chat_model() kwargs
+model:
+  model: gpt-4o
+  model_provider: openai
+
+workspace_write_option: "read-only"
+judge_max_retries: 1
+judge_on_max_retries: "continue"
+judge_min: "WARNING"
+judge_skip: false
+
+# Omit task_files to let the map agent discover relevant files automatically
+# task_files:
+#   - "src/**/*.py"
