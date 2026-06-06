@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import mlflow
 import yaml
 
 from deepworkflow.shared.config import DeepWorkflowConfig
@@ -41,15 +40,18 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    mlflow.langchain.autolog()
-
     config_path = Path(args.config)
     if not config_path.exists():
         print(f"Error: config file not found: {config_path}", file=sys.stderr)  # noqa: T201
         sys.exit(1)
 
     with config_path.open() as f:
-        raw = yaml.safe_load(f)
+        content = f.read()
+
+    import os
+
+    content = os.path.expandvars(content)
+    raw = yaml.safe_load(content)
 
     config = _build_config(raw, model_override=args.model)
 
@@ -86,6 +88,7 @@ def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkfl
         judge_batch_instructions=raw.get("judge_batch_instructions"),
         max_failure_retries=raw.get("max_failure_retries", 0),
         judge_skip=raw.get("judge_skip", False),
+        mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "mlruns"),
     )
 
 

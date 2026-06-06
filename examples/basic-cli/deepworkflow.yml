@@ -2,9 +2,18 @@ workspace_dir: "."
 task_instructions: "List all Python files and summarize their purpose."
 
 # model must be a dict of init_chat_model() kwargs
+# Values can reference environment variables using ${VAR_NAME} syntax
+
+# Azure OpenAI model configuration
+# Non-secret config: set DEEPWORKFLOW_MODEL, DEEPWORKFLOW_MODEL_PROVIDER,
+#   DEEPWORKFLOW_AZURE_ENDPOINT, DEEPWORKFLOW_API_VERSION in .env
+# Secret: DEEPWORKFLOW_API_KEY in macOS Keychain (run 'make setup-secrets')
 model:
-  model: gpt-4o
-  model_provider: openai
+  model_provider: ${DEEPWORKFLOW_MODEL_PROVIDER}
+  model: ${DEEPWORKFLOW_MODEL}
+  azure_endpoint: ${DEEPWORKFLOW_AZURE_ENDPOINT}
+  api_version: ${DEEPWORKFLOW_API_VERSION}
+  api_key: ${DEEPWORKFLOW_API_KEY}
 
 workspace_write_option: "read-only"
 judge_max_retries: 1

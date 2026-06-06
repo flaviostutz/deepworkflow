@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.file_batch_workflow.graph import (
-    fail_step,
-    increment_retry_step,
-    map_increment_retry_step,
-    record_output_step,
-)
+from deepworkflow.app.workflows.file_batch_workflow.nodes.fail_step import fail_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.increment_retry_step import increment_retry_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.map_increment_retry_step import map_increment_retry_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.record_output_step import record_output_step
 from deepworkflow.shared.types import BatchDefinition, JudgeVerdict
 
 

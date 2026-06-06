@@ -30,6 +30,8 @@ def run_workflow(
 
     """
     checkpointer = None
+    tracking_uri = config.mlflow_tracking_uri if config is not None else "mlruns"
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.langchain.autolog()
     if checkpoint_dir:
         try:

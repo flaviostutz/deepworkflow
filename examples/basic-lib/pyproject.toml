@@ -5,6 +5,7 @@ description = "Basic example of using deepworkflow as a library"
 requires-python = ">=3.11"
 dependencies = [
     "deepworkflow",
+    "keyring>=25.0.0",
 ]
 
 [tool.uv.sources]

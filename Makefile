@@ -1,7 +1,7 @@
 UV_PROJECT_ENVIRONMENT ?= $(shell pwd)/.venv
 export UV_PROJECT_ENVIRONMENT
 
-.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval
+.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval dev-mlflow
 
 setup:
 	mise install
@@ -32,6 +32,10 @@ test: test-unit
 eval:
 	$(MAKE) -C evals/file_batch_workflow eval
 
+dev-mlflow:
+	mise exec -- mlflow ui --host 0.0.0.0 --port 5000
+	open http://localhost:5000
+ 
 clean:
 	rm -rf .venv .cache
 	$(MAKE) -C lib clean

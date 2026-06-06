@@ -87,3 +87,8 @@ class DeepWorkflowConfig:
     judge_skip: bool = False
     """If ``True``, no judge steps are performed during map and batch execution.
     Can save time and tokens, but the quality of the work will not be verified."""
+
+    mlflow_tracking_uri: str = "mlruns"
+    """MLflow tracking URI used to store experiment runs.  Defaults to the local
+    ``mlruns/`` folder (file-based store).  Set to a remote URI such as
+    ``http://my-mlflow-server:5000`` to use a remote tracking server."""
