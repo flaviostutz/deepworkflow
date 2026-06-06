@@ -5,6 +5,7 @@ description = "Basic example of using deepworkflow via CLI"
 requires-python = ">=3.11"
 dependencies = [
     "deepworkflow",
+    "keyring>=25.0.0",
     "langchain-openai>=0.2.0",
 ]
 
