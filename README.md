@@ -1,6 +1,8 @@
 # deepworkflow
 
-A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → judge → reduce**.
+A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → reflect → [repeat loop] → quality judge → reduce**.
+
+The repeat loop re-runs `plan → execute → reflect` while a **progress judge** (`evaluate_batch_progress_agent`) detects meaningful work was done in the previous pass, up to a configurable ceiling (`batch_repeat_max`). Once all passes complete, a **quality judge** (`evaluate_batch_quality_agent`) performs the final quality check on the batch result.
 
 Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a LangGraph-based ReAct agent framework with filesystem support. Exposed as a Python library (LangGraph subgraph embeddable in other applications) and as a standalone CLI with config file.
 
@@ -63,7 +65,7 @@ config = DeepWorkflowConfig(
 
 # Option 3: Route by agent name
 AGENT_MODELS = {
-    "evaluate_batch_agent": "gpt-4o-mini",
+    "evaluate_batch_quality_agent": "gpt-4o-mini",
     "evaluate_map_batches_agent": "gpt-4o-mini",
 }
 
@@ -74,7 +76,7 @@ def model_factory(agent_name: str):
 config = DeepWorkflowConfig(model=model_factory, ...)
 ```
 
-Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_agent`, `reduce_consolidate_agent`.
+Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_progress_agent`, `evaluate_batch_quality_agent`, `reduce_consolidate_agent`.
 
 ## Workflow Diagram
 
@@ -94,9 +96,15 @@ graph TD
     BatchLoop --> Plan[plan_batch_agent]
     Plan --> Execute[execute_batch_agent]
     Execute --> Reflect[reflect_batch_agent]
-    Reflect --> JudgeSkipBatch{judge_skip?}
-    JudgeSkipBatch -- No --> Evaluate[evaluate_batch_agent]
-    JudgeSkipBatch -- Yes --> SkipJudge2[skip_judge_step]
+    Reflect --> AfterReflect{batch_repeat_max > 0?}
+    AfterReflect -- Yes --> EvalProgress[evaluate_batch_progress_agent]
+    AfterReflect -- No, judge_skip --> SkipJudge2[skip_judge_step]
+    AfterReflect -- No --> Evaluate[evaluate_batch_quality_agent]
+    EvalProgress --> ProgressCheck{progress &\nceiling not reached?}
+    ProgressCheck -- repeat --> IncrBatchRepeat[increment_batch_repeat_step]
+    IncrBatchRepeat --> Plan
+    ProgressCheck -- evaluate --> Evaluate
+    ProgressCheck -- skip --> SkipJudge2
     Evaluate --> VerdictCheck{verdict ≥\njudge_min?}
     SkipJudge2 --> RecordOutput[record_output_step]
     VerdictCheck -- Yes --> RecordOutput
@@ -130,11 +138,12 @@ For each batch produced by the map phase:
 4. **plan_batch_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + judge feedback (on retry).
 5. **execute_batch_agent** — Agent with configurable write permissions that executes the plan. Stores its message history for reflect.
 6. **reflect_batch_agent** — Continues the execute agent's conversation to self-report which files were read and written.
-7. **evaluate_batch_agent** — Read-only judge that evaluates execution quality. If verdict < judge_minimum, the batch retries from plan_batch_agent with judge feedback.
+7. **evaluate_batch_progress_agent** — *Progress judge.* Read-only judge that checks whether meaningful progress was made during the current pass. When `batch_repeat_max > 0`, loops back to `plan_batch_agent` if progress was made and the repeat ceiling hasn't been reached; otherwise hands off to the quality judge.
+8. **evaluate_batch_quality_agent** — *Quality judge.* Read-only judge that evaluates the overall quality of batch execution results. If verdict < judge_minimum, the batch retries from plan_batch_agent with judge feedback.
 
 ### Phase 3: Reduce
 
-8. **reduce_consolidate_agent** — Produces the final `workflow_output` by reviewing all batch outputs using `consolidation_instructions` from the map phase.
+9. **reduce_consolidate_agent** — Produces the final `workflow_output` by reviewing all batch outputs using `consolidation_instructions` from the map phase.
 
 ## Checkpointing & Resume
 

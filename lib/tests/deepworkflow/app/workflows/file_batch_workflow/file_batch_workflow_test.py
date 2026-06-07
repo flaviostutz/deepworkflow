@@ -59,7 +59,8 @@ def _initial_state(config: DeepWorkflowConfig) -> dict:
 def _patch_all(mocker, **overrides) -> None:
     """Patch all LLM-driven agent nodes with simple return values.
 
-    Accepted keyword overrides: resolve, map_batch, eval_map, plan, execute, reflect, eval_batch, reduce.
+    Accepted keyword overrides: resolve, map_batch, eval_map, plan, execute, reflect,
+    eval_progress, eval_batch, reduce.
     Each value is returned by the corresponding mock. Pass a list to use side_effect instead.
     """
 
@@ -76,7 +77,8 @@ def _patch_all(mocker, **overrides) -> None:
     _apply("plan_batch_agent", "plan", {"plan_output": "plan"})
     _apply("execute_batch_agent", "execute", {"execute_output": "done", "execute_messages": []})
     _apply("reflect_batch_agent", "reflect", {"files_read": [], "files_written": []})
-    _apply("evaluate_batch_agent", "eval_batch", {"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []})
+    _apply("evaluate_batch_progress_agent", "eval_progress", {"batch_progress": False})
+    _apply("evaluate_batch_quality_agent", "eval_batch", {"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []})
     _apply("reduce_consolidate_agent", "reduce", {"workflow_output": "final output"})
 
 
@@ -147,7 +149,7 @@ class TestWorkflowBatchJudgeRetry:
         _patch_all(mocker)
         # Override: eval_batch fails first, passes second
         mocker.patch(
-            f"{_BASE}.evaluate_batch_agent",
+            f"{_BASE}.evaluate_batch_quality_agent",
             side_effect=[
                 {"judge_verdict": JudgeVerdict.ERROR, "judge_feedbacks": []},
                 {"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []},
@@ -207,3 +209,81 @@ class TestWorkflowMultipleBatches:
         assert result.get("error") is None
         # Two batches were recorded (batch[0] and batch[1]; batch[2] not reached by routing)
         assert len(result.get("batch_outputs", [])) == 2
+
+
+class TestWorkflowBatchRepeat:
+    def test_repeat_loop_runs_passes_until_no_progress(self, mocker):
+        """With batch_repeat_max=2, progress=True then False: plan/execute/reflect run twice."""
+        config = _make_config(judge_skip=False, batch_repeat_max=2)
+        _patch_all(
+            mocker,
+            eval_progress=[
+                {"batch_progress": True},  # pass 0: made progress → repeat
+                {"batch_progress": False},  # pass 1: no progress → go to quality judge
+            ],
+            eval_batch={"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []},
+        )
+        graph = build_file_batch_workflow()
+        result = graph.invoke(_initial_state(config))
+        assert result["workflow_output"] == "final output"
+        assert result.get("error") is None
+
+    def test_safety_ceiling_stops_loop(self, mocker):
+        """With batch_repeat_max=1 and progress always True: only one extra pass runs."""
+        config = _make_config(judge_skip=False, batch_repeat_max=1)
+        eval_progress_mock = mocker.MagicMock(return_value={"batch_progress": True})
+        _patch_all(
+            mocker,
+            eval_batch={"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []},
+        )
+        # Override the progress mock to count calls
+        mocker.patch(f"{_BASE}.evaluate_batch_progress_agent", eval_progress_mock)
+        graph = build_file_batch_workflow()
+        result = graph.invoke(_initial_state(config))
+        assert result["workflow_output"] == "final output"
+        assert result.get("error") is None
+        # Progress judge called twice: pass 0 (repeat) + pass 1 (ceiling reached → evaluate)
+        assert eval_progress_mock.call_count == 2
+
+    def test_files_accumulated_across_passes(self, mocker):
+        """Files from all passes are merged into batch_outputs."""
+        config = _make_config(judge_skip=False, batch_repeat_max=2)
+        _patch_all(
+            mocker,
+            reflect=[
+                {"files_read": ["a.py"], "files_written": ["a.py"]},  # pass 0
+                {"files_read": ["b.py"], "files_written": ["b.py"]},  # pass 1
+            ],
+            eval_progress=[
+                {"batch_progress": True},  # pass 0 → repeat
+                {"batch_progress": False},  # pass 1 → evaluate
+            ],
+            eval_batch={"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []},
+        )
+        graph = build_file_batch_workflow()
+        result = graph.invoke(_initial_state(config))
+        assert result["workflow_output"] == "final output"
+        batch_out = result["batch_outputs"][0]
+        assert "a.py" in batch_out.files_read
+        assert "b.py" in batch_out.files_read
+        assert "a.py" in batch_out.files_written
+        assert "b.py" in batch_out.files_written
+
+    def test_quality_judge_retry_resets_repeat_count(self, mocker):
+        """When the quality judge triggers a retry, batch_repeat_count is reset to 0."""
+        config = _make_config(judge_skip=False, batch_repeat_max=1, judge_max_retries=1)
+        _patch_all(
+            mocker,
+            eval_progress=[
+                {"batch_progress": False},  # first attempt pass 0 → evaluate
+                {"batch_progress": False},  # retry pass 0 → evaluate
+            ],
+            eval_batch=[
+                {"judge_verdict": JudgeVerdict.ERROR, "judge_feedbacks": []},  # first attempt: fail → retry
+                {"judge_verdict": JudgeVerdict.OK, "judge_feedbacks": []},  # retry: pass
+            ],
+        )
+        graph = build_file_batch_workflow()
+        result = graph.invoke(_initial_state(config))
+        assert result["workflow_output"] == "final output"
+        assert result.get("error") is None

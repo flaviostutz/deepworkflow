@@ -17,6 +17,28 @@ def route_batch_judge(state: dict) -> Literal["skip", "evaluate"]:
     return "evaluate"
 
 
+def route_after_reflect(state: dict) -> Literal["evaluate_progress", "evaluate", "skip"]:
+    """Route after reflect: go to progress judge when batch_repeat_max > 0, else quality judge or skip."""
+    config = state["config"]
+    if config.batch_repeat_max > 0:
+        return "evaluate_progress"
+    if config.judge_skip:
+        return "skip"
+    return "evaluate"
+
+
+def check_batch_progress(state: dict) -> Literal["repeat", "evaluate", "skip"]:
+    """Route after progress judge: repeat if progress made and ceiling not reached, else quality judge or skip."""
+    config = state["config"]
+    batch_progress = state.get("batch_progress", False)
+    batch_repeat_count = state.get("batch_repeat_count", 0)
+    if batch_progress and batch_repeat_count < config.batch_repeat_max:
+        return "repeat"
+    if config.judge_skip:
+        return "skip"
+    return "evaluate"
+
+
 def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     """Route: check if the map judge verdict meets minimum threshold."""
     config = state["config"]

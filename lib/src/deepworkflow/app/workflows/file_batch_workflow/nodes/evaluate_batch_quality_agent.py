@@ -12,7 +12,10 @@ if TYPE_CHECKING:
 
 EVALUATE_PROMPT = """{workflow_context}
 
-You are evaluating the quality of task execution for a single batch.
+You are the **quality judge** for a single batch execution.
+Your role is to perform the FINAL quality check on the overall results — this runs once after
+all execution passes for the batch are complete. You are NOT checking for progress or deciding
+whether to repeat; that is the responsibility of the progress judge (evaluate_batch_progress_agent).
 
 Task instructions: {task_instructions}
 
@@ -59,8 +62,8 @@ The verdict should be the WORST (lowest) type across all feedbacks.
 - ERROR: Critical problems that must be fixed"""
 
 
-def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
-    """Evaluate the execution output using a separate judge agent."""
+def evaluate_batch_quality_agent(state: file_batch_workflow_state) -> dict:
+    """Judge the overall quality of batch execution results (final quality check)."""
     config = state["config"]
     batch_index = state["current_batch_index"]
     current_batch = state["task_file_batches"][batch_index]
@@ -68,7 +71,9 @@ def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
     judge_instructions = state["judge_batch_instructions"]
 
     prompt = EVALUATE_PROMPT.format(
-        workflow_context=workflow_role("evaluate_batch_agent", "Judge the quality of batch execution results"),
+        workflow_context=workflow_role(
+            "evaluate_batch_quality_agent", "Judge the overall quality of batch execution results (final quality check)"
+        ),
         task_instructions=config.task_instructions,
         batch_files="\n".join(current_batch.batch_files),
         execute_output=state["execute_output"],
@@ -78,7 +83,7 @@ def evaluate_batch_agent(state: file_batch_workflow_state) -> dict:
     )
 
     agent = create_agent(
-        model=config.model("evaluate_batch_agent"),
+        model=config.model("evaluate_batch_quality_agent"),
         system_prompt=prompt,
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,

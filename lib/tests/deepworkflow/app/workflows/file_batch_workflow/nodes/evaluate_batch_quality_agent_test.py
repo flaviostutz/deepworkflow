@@ -3,7 +3,9 @@ from __future__ import annotations
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from conftest import mock_deep_agent
-from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_agent import evaluate_batch_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_quality_agent import (
+    evaluate_batch_quality_agent,
+)
 from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import BatchDefinition, JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
@@ -35,17 +37,17 @@ def _make_state(**overrides) -> dict:
     return defaults
 
 
-class TestEvaluateBatchAgent:
+class TestEvaluateBatchQualityAgent:
     def test_returns_verdict_and_feedbacks(self, mocker):
         mock_deep_agent(
             mocker,
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_agent.create_agent",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_quality_agent.create_agent",
             {
                 "judge_verdict": "OK",
                 "judge_feedbacks": [{"file": "a.py", "type": "OK", "description": "looks good", "proposal": ""}],
             },
         )
-        result = evaluate_batch_agent(_make_state())
+        result = evaluate_batch_quality_agent(_make_state())
         assert result["judge_verdict"] == JudgeVerdict.OK
         assert len(result["judge_feedbacks"]) == 1
         assert result["judge_feedbacks"][0].file == "a.py"
@@ -53,8 +55,8 @@ class TestEvaluateBatchAgent:
     def test_invalid_json_returns_error_verdict(self, mocker):
         mock_deep_agent(
             mocker,
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_agent.create_agent",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_quality_agent.create_agent",
             "not valid json {{{",
         )
-        result = evaluate_batch_agent(_make_state())
+        result = evaluate_batch_quality_agent(_make_state())
         assert result["judge_verdict"] == JudgeVerdict.ERROR

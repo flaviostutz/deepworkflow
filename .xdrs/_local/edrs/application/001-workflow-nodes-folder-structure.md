@@ -32,7 +32,8 @@ app/workflows/<workflow>/
     plan_batch_agent.py
     execute_batch_agent.py
     reflect_batch_agent.py
-    evaluate_batch_agent.py
+    evaluate_batch_progress_agent.py  # progress judge: checks whether meaningful progress was made each pass (repeat loop only)
+    evaluate_batch_quality_agent.py   # quality judge: final quality check after all passes complete
     reduce_consolidate_agent.py
     resolve_globs_step.py
 ```

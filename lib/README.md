@@ -1,6 +1,11 @@
 # deepworkflow
 
-A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → judge → reduce**.
+A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → reflect → [repeat loop] → quality judge → reduce**.
+
+Two judges operate in the per-batch loop with distinct responsibilities:
+
+- **Progress judge** (`evaluate_batch_progress_agent`) — lightweight check after each `plan → execute → reflect` pass. Decides whether meaningful progress was made and whether to loop back for another pass (only active when `batch_repeat_max > 0`). Does **not** evaluate final quality.
+- **Quality judge** (`evaluate_batch_quality_agent`) — final check that runs **once** after all passes for a batch complete. Evaluates the overall quality of the result and decides whether to accept it or retry the batch.
 
 Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a LangGraph-based ReAct agent framework with filesystem support. Exposed as a Python library (LangGraph subgraph embeddable in other applications) and as a standalone CLI with config file.
 
@@ -71,7 +76,7 @@ def model_factory(agent_name: str):
 config = DeepWorkflowConfig(model=model_factory, ...)
 ```
 
-Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_agent`, `reduce_consolidate_agent`.
+Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_progress_agent`, `evaluate_batch_quality_agent`, `reduce_consolidate_agent`.
 
 ## task_files — Existing Files Only
 
@@ -83,6 +88,29 @@ Glob patterns and line-range suffixes are expanded against the workspace before 
 task_files=["src/**/*.py", "tests/**/*.py"]   # globs over existing files
 task_files=["README.md:34-56"]                 # line range of an existing file
 ```
+
+## Repeat Loop (`batch_repeat_max`)
+
+By default (`batch_repeat_max=0`) each batch runs a single `plan → execute → reflect` pass before the **quality judge** (`evaluate_batch_quality_agent`) evaluates the result.
+
+Setting `batch_repeat_max` to a positive integer enables a **progress-driven repeat loop**: after each reflect, the **progress judge** (`evaluate_batch_progress_agent`) asks the model whether the pass made meaningful, non-trivial progress. If yes, and the ceiling has not been reached, a fresh `plan → execute → reflect` pass runs for the same batch. The **quality judge** then runs once after all passes complete.
+
+Files touched across all passes are accumulated and reported together in `BatchOutput`.
+
+```python
+config = DeepWorkflowConfig(
+    ...
+    batch_repeat_max=3,  # allow up to 3 extra passes per batch
+)
+```
+
+YAML equivalent:
+
+```yaml
+batch_repeat_max: 3
+```
+
+> **Note**: Each repeat pass is fully independent — the agent starts a fresh session with no memory of previous passes. Use this feature for tasks designed for incremental multi-pass work (e.g., "implement as many items as possible per pass").
 
 ## Output Files in Batch Instructions
 

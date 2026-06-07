@@ -27,6 +27,7 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     # Iteration tracking
     current_batch_index: int
     retry_count: int
+    batch_repeat_count: int
 
     # Phase 2: Plan/Execute/Reflect/Judge (per-batch, reset each iteration)
     plan_output: str
@@ -36,6 +37,11 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     files_written: list[str]
     judge_verdict: JudgeVerdict
     judge_feedbacks: list[JudgeFeedback]
+    batch_progress: bool
+
+    # Accumulated results across batch-repeat passes
+    cumulative_files_read: list[str]
+    cumulative_files_written: list[str]
 
     # Accumulated results
     batch_outputs: list[BatchOutput]

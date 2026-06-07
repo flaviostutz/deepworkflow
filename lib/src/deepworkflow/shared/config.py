@@ -88,6 +88,15 @@ class DeepWorkflowConfig:
     """If ``True``, no judge steps are performed during map and batch execution.
     Can save time and tokens, but the quality of the work will not be verified."""
 
+    batch_repeat_max: int = 0
+    """Maximum number of additional plan→execute→reflect passes to run per batch
+    when the progress judge detects meaningful work was done.  ``0`` (default)
+    disables the repeat loop entirely.  When greater than zero, after each
+    reflect a lightweight progress judge asks whether the pass made meaningful
+    progress; if yes and the ceiling has not been reached the loop repeats with
+    a fresh agent session.  The quality judge still runs only once, after all
+    repeats complete."""
+
     mlflow_tracking_uri: str = "mlruns"
     """MLflow tracking URI used to store experiment runs.  Defaults to the local
     ``mlruns/`` folder (file-based store).  Set to a remote URI such as

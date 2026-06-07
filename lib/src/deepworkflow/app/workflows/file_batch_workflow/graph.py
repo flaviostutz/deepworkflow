@@ -7,10 +7,18 @@ from langgraph.graph import END, StateGraph
 from deepworkflow.app.workflows.file_batch_workflow.nodes.check_max_retries_policy_step import (
     check_max_retries_policy_step,
 )
-from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_agent import evaluate_batch_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_progress_agent import (
+    evaluate_batch_progress_agent,
+)
+from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_quality_agent import (
+    evaluate_batch_quality_agent,
+)
 from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent import evaluate_map_batches_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent import execute_batch_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.fail_step import fail_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.increment_batch_repeat_step import (
+    increment_batch_repeat_step,
+)
 from deepworkflow.app.workflows.file_batch_workflow.nodes.increment_retry_step import increment_retry_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent import map_batches_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.map_increment_retry_step import map_increment_retry_step
@@ -21,13 +29,14 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent im
 from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import resolve_globs_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.skip_judge_step import skip_judge_step
 from deepworkflow.app.workflows.file_batch_workflow.routes import (
+    check_batch_progress,
     check_map_retries,
     check_map_verdict,
     check_max_retries_policy,
     check_retries,
     check_verdict,
     next_batch,
-    route_batch_judge,
+    route_after_reflect,
     route_map_judge,
 )
 from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
@@ -55,7 +64,9 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_node("plan_batch_agent", plan_batch_agent)
     builder.add_node("execute_batch_agent", execute_batch_agent)
     builder.add_node("reflect_batch_agent", reflect_batch_agent)
-    builder.add_node("evaluate_batch_agent", evaluate_batch_agent)
+    builder.add_node("evaluate_batch_progress_agent", evaluate_batch_progress_agent)
+    builder.add_node("increment_batch_repeat_step", increment_batch_repeat_step)
+    builder.add_node("evaluate_batch_quality_agent", evaluate_batch_quality_agent)
     builder.add_node("skip_judge_step", skip_judge_step)
     builder.add_node("record_output_step", record_output_step)
     builder.add_node("increment_retry_step", increment_retry_step)
@@ -95,17 +106,33 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_edge("plan_batch_agent", "execute_batch_agent")
     builder.add_edge("execute_batch_agent", "reflect_batch_agent")
 
-    # After reflect: route to judge or skip based on judge_skip
+    # After reflect: route to progress judge (if batch_repeat_max > 0), quality judge, or skip
     builder.add_conditional_edges(
         "reflect_batch_agent",
-        route_batch_judge,
-        {"evaluate": "evaluate_batch_agent", "skip": "skip_judge_step"},
+        route_after_reflect,
+        {
+            "evaluate_progress": "evaluate_batch_progress_agent",
+            "evaluate": "evaluate_batch_quality_agent",
+            "skip": "skip_judge_step",
+        },
     )
+
+    # After progress judge: repeat loop, quality judge, or skip
+    builder.add_conditional_edges(
+        "evaluate_batch_progress_agent",
+        check_batch_progress,
+        {
+            "repeat": "increment_batch_repeat_step",
+            "evaluate": "evaluate_batch_quality_agent",
+            "skip": "skip_judge_step",
+        },
+    )
+    builder.add_edge("increment_batch_repeat_step", "plan_batch_agent")
     builder.add_edge("skip_judge_step", "record_output_step")
 
-    # After task evaluation: check verdict
+    # After quality judge: check verdict
     builder.add_conditional_edges(
-        "evaluate_batch_agent",
+        "evaluate_batch_quality_agent",
         check_verdict,
         {"pass": "record_output_step", "retry_or_fail": "increment_retry_step"},
     )

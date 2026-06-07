@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from deepworkflow.app.workflows.file_batch_workflow.routes import (
+    check_batch_progress,
     check_map_retries,
     check_map_verdict,
     check_max_retries_policy,
     check_retries,
     check_verdict,
     next_batch,
+    route_after_reflect,
     route_batch_judge,
     route_map_judge,
 )
@@ -144,3 +146,54 @@ class TestRouteBatchJudge:
     def test_skip_when_judge_skip_true(self):
         config = _make_config(judge_skip=True)
         assert route_batch_judge({"config": config}) == "skip"
+
+
+class TestRouteAfterReflect:
+    def test_evaluate_progress_when_batch_repeat_max_set(self):
+        config = _make_config(batch_repeat_max=2, judge_skip=False)
+        assert route_after_reflect({"config": config}) == "evaluate_progress"
+
+    def test_evaluate_progress_even_when_judge_skip_true(self):
+        # batch_repeat_max takes precedence over judge_skip
+        config = _make_config(batch_repeat_max=1, judge_skip=True)
+        assert route_after_reflect({"config": config}) == "evaluate_progress"
+
+    def test_evaluate_when_no_repeat_and_judge_not_skipped(self):
+        config = _make_config(batch_repeat_max=0, judge_skip=False)
+        assert route_after_reflect({"config": config}) == "evaluate"
+
+    def test_skip_when_no_repeat_and_judge_skipped(self):
+        config = _make_config(batch_repeat_max=0, judge_skip=True)
+        assert route_after_reflect({"config": config}) == "skip"
+
+
+class TestCheckBatchProgress:
+    def test_repeat_when_progress_and_below_ceiling(self):
+        config = _make_config(batch_repeat_max=3, judge_skip=False)
+        state = {"config": config, "batch_progress": True, "batch_repeat_count": 1}
+        assert check_batch_progress(state) == "repeat"
+
+    def test_evaluate_when_progress_but_at_ceiling(self):
+        config = _make_config(batch_repeat_max=2, judge_skip=False)
+        state = {"config": config, "batch_progress": True, "batch_repeat_count": 2}
+        assert check_batch_progress(state) == "evaluate"
+
+    def test_evaluate_when_no_progress_and_judge_not_skipped(self):
+        config = _make_config(batch_repeat_max=3, judge_skip=False)
+        state = {"config": config, "batch_progress": False, "batch_repeat_count": 0}
+        assert check_batch_progress(state) == "evaluate"
+
+    def test_skip_when_no_progress_and_judge_skipped(self):
+        config = _make_config(batch_repeat_max=3, judge_skip=True)
+        state = {"config": config, "batch_progress": False, "batch_repeat_count": 0}
+        assert check_batch_progress(state) == "skip"
+
+    def test_skip_when_at_ceiling_and_judge_skipped(self):
+        config = _make_config(batch_repeat_max=2, judge_skip=True)
+        state = {"config": config, "batch_progress": True, "batch_repeat_count": 2}
+        assert check_batch_progress(state) == "skip"
+
+    def test_repeat_count_missing_defaults_to_zero(self):
+        config = _make_config(batch_repeat_max=1, judge_skip=False)
+        state = {"config": config, "batch_progress": True}
+        assert check_batch_progress(state) == "repeat"

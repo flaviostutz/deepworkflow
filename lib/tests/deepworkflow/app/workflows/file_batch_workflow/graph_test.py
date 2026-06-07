@@ -57,10 +57,18 @@ class TestRecordBatchOutput:
 
 class TestIncrementRetry:
     def test_increments_from_zero(self):
-        assert increment_retry_step({}) == {"retry_count": 1}
+        result = increment_retry_step({})
+        assert result["retry_count"] == 1
+        assert result["batch_repeat_count"] == 0
+        assert result["cumulative_files_read"] == []
+        assert result["cumulative_files_written"] == []
 
     def test_increments_existing(self):
-        assert increment_retry_step({"retry_count": 2}) == {"retry_count": 3}
+        result = increment_retry_step({"retry_count": 2})
+        assert result["retry_count"] == 3
+        assert result["batch_repeat_count"] == 0
+        assert result["cumulative_files_read"] == []
+        assert result["cumulative_files_written"] == []
 
 
 class TestMapIncrementRetry:
