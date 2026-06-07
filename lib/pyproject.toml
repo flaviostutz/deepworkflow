@@ -78,7 +78,7 @@ ignore = ["ANN002", "ANN003", "ANN401", "D100", "D101", "D102", "D103", "D104",
   "TC001", "PLC0415"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S108", "ANN201", "ANN001", "PLR2004", "D", "E501", "PLC0415", "W291", "INP001"]
+"tests/**" = ["S101", "S108", "ANN201", "ANN202", "ANN001", "PLR2004", "D", "E501", "PLC0415", "W291", "INP001"]
 # LLM prompt strings are inherently long; PERF401 fires on conditional appends in complex validation logic
 "src/deepworkflow/app/workflows/file_batch_workflow/nodes/map_batches_agent.py" = ["E501", "ANN001"]
 "src/deepworkflow/app/workflows/file_batch_workflow/nodes/evaluate_map_batches_agent.py" = ["E501", "PERF401"]

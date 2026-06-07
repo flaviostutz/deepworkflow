@@ -209,6 +209,16 @@ result = graph.invoke(
 
 ## Development
 
+### Repository layout
+
+| Directory | Contents |
+|-----------|----------|
+| `lib/` | Published Python library (`deepworkflow` package) |
+| `examples/` | Runnable consumer examples (`basic-cli/`, `basic-lib/`) |
+| `evals/` | Eval test suites (`file_batch_workflow/`) — require a live API key |
+
+### Commands
+
 ```bash
 make setup    # Install tools and dependencies
 make build    # Build wheel

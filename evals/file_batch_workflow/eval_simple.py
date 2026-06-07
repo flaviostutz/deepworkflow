@@ -74,6 +74,8 @@ def run_eval() -> None:
         except RuntimeError as e:
             mlflow.log_metric("success", 0)
             mlflow.log_param("error", str(e))
+            # Workflow crashed; exit non-zero so CI pipelines detect the failure.
+            raise SystemExit(1) from e
 
 
 if __name__ == "__main__":

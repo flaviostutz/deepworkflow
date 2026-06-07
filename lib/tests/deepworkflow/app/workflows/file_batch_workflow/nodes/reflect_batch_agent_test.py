@@ -4,7 +4,10 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import AIMessage
 
 from conftest import mock_deep_agent
-from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent import reflect_batch_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent import (
+    _parse_reflect_output,
+    reflect_batch_agent,
+)
 from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
 
@@ -46,3 +49,46 @@ class TestReflectBatchAgent:
         result = reflect_batch_agent({"config": _make_config(), "execute_messages": [existing_msg]})
         assert result["files_read"] == ["a.py", "b.py"]
         assert result["files_written"] == ["c.py"]
+
+
+class TestParseReflectOutput:
+    def test_standard_format(self):
+        content = """FILES_READ:
+src/main.py
+src/utils.py
+
+FILES_WRITTEN:
+src/output.py"""
+        files_read, files_written = _parse_reflect_output(content)
+        assert files_read == ["src/main.py", "src/utils.py"]
+        assert files_written == ["src/output.py"]
+
+    def test_no_files_written(self):
+        content = """FILES_READ:
+src/main.py
+
+FILES_WRITTEN:
+"""
+        files_read, files_written = _parse_reflect_output(content)
+        assert files_read == ["src/main.py"]
+        assert files_written == []
+
+    def test_no_files_at_all(self):
+        content = """FILES_READ:
+
+FILES_WRITTEN:
+"""
+        files_read, files_written = _parse_reflect_output(content)
+        assert files_read == []
+        assert files_written == []
+
+    def test_extra_whitespace(self):
+        content = """FILES_READ:
+  src/main.py  
+src/utils.py
+
+FILES_WRITTEN:
+  dist/out.py  """
+        files_read, files_written = _parse_reflect_output(content)
+        assert files_read == ["src/main.py", "src/utils.py"]
+        assert files_written == ["dist/out.py"]
