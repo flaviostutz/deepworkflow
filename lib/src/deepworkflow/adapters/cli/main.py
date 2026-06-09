@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
     from langchain_core.language_models import BaseChatModel
 
+logger = logging.getLogger(__name__)
+
 
 def main() -> None:
     """CLI entry point for deepworkflow."""
@@ -141,9 +143,12 @@ def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Call
         None,
     )
     if not api_key:
-        msg = "No API key found in model configuration. Set the appropriate environment variable (e.g. OPENAI_API_KEY, AZURE_OPENAI_API_KEY) or add 'api_key' to the model config."
+        msg = (
+            "No API key found in model configuration. Set the appropriate environment variable"
+            " (e.g. OPENAI_API_KEY, AZURE_OPENAI_API_KEY) or add 'api_key' to the model config."
+        )
         raise ValueError(msg)
-    logging.info("Using API key starting with: %s...", api_key[:8])
+    logger.info("Using API key starting with: %s...", api_key[:8])
 
     def factory_config(_agent_name: str) -> BaseChatModel:
         return init_chat_model(**merged)
