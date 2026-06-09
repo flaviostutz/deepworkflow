@@ -32,9 +32,10 @@ Language and framework-specific tooling and project structure.
 - [agentme-edr-014](application/014-python-project-tooling.md) - **Python project tooling and structure** - Scaffold Python packages and CLIs with the standard layout *(includes skill: [005-create-python-project](application/skills/005-create-python-project/SKILL.md))*
 - [agentme-edr-015](application/015-cli-tool-standards.md) - **CLI tool standards** - Define command UX and behavior for CLI tools
 - [agentme-edr-018](application/018-ai-llm-development-standards.md) - **AI LLM development standards** - Standard framework (LangChain) and patterns for simple LLM calls with explicit configuration (no environment variables)
-- [agentme-edr-019](application/019-ai-agents-development-standards.md) - **AI agents development standards** - Standard framework (deepagents) and patterns for agentic tool-invocation loops
-- [agentme-edr-020](application/020-ai-workflow-development-standards.md) - **AI workflow development standards** - Standard toolchain (LangGraph), evaluation, and testing patterns for workflow projects
-- [agentme-edr-021](application/021-ai-eval-standards.md) - **AI eval standards** - Folder structure, script requirements, and MLflow tracking for eval tests across LLM, Agent, and Workflow tiers
+- [agentme-edr-019](application/019-ai-agents-development-standards.md) - **AI agents development standards** - Structural patterns for agents: framework selection, sandbox setup, naming conventions, composition, and system prompt structure
+- [agentme-edr-020](application/020-ai-agents-quality-standards.md) - **AI agents implementation quality standards** - Tool definition patterns, error handling, observability, and unit testing for agents
+- [agentme-edr-021](application/021-ai-workflow-development-standards.md) - **AI workflow development standards** - Standard toolchain (LangGraph), evaluation, and testing patterns for workflow projects
+- [agentme-edr-028](application/028-ai-eval-standards.md) - **AI eval standards** - Folder structure, script requirements, and MLflow tracking for eval tests across LLM, Agent, and Workflow tiers
 - [agentme-edr-024](application/024-ml-dataset-structure.md) - **ML dataset structure** - Standard folder layout and file conventions for ML datasets
 - [agentme-edr-025](application/025-ai-agent-xdrs-knowledge-layer.md) - **AI agent XDRS knowledge layer** - How to integrate XDRS as the runtime source of truth for policies and skills in AI agents (apply only when the project explicitly uses XDRS)
 - [agentme-edr-026](application/026-pragmatic-hexagonal-architecture.md) - **Pragmatic hexagonal architecture** - Organize application layers as External/Adapters/Application with practical coupling rules
@@ -48,6 +49,7 @@ Repository structure, build conventions, and CI/CD pipelines.
 - [agentme-edr-006](devops/006-github-pipelines.md) - **GitHub CI/CD pipelines** - Define required CI stages and workflow structure
 - [agentme-edr-008](devops/008-common-targets.md) - **Common development script names** - Reuse standard build, lint, and test target names
 - [agentme-edr-017](devops/017-tool-execution-and-scripting.md) - **Tool execution and scripting** - Run tools consistently across shells, Makefiles, and CI
+- [agentme-edr-027](devops/027-environment-variable-configuration.md) - **Environment variable configuration files** - Manage non-secret configuration with `.env` files, `.gitignore` rules, stage variants, and Makefile loading
 
 ## Governance
 

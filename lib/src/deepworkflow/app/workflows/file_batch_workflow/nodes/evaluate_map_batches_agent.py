@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import re
 from collections import Counter
 from pathlib import Path
@@ -21,10 +22,11 @@ def _base_path(file_ref: str) -> str:
     return _LINE_RANGE_RE.sub("", file_ref)
 
 
-def _algorithmic_map_checks(  # noqa: C901
+def _algorithmic_map_checks(  # noqa: C901, PLR0912
     workspace_dir: str,
     task_files: list[str],
     batches: list[BatchDefinition],
+    task_files_exclude: list[str] | None = None,
 ) -> list[JudgeFeedback]:
     """Deterministic checks that do not rely on an LLM.
 
@@ -32,6 +34,7 @@ def _algorithmic_map_checks(  # noqa: C901
     2. When ``task_files`` was provided (non-empty), every task file must appear
        in exactly one batch — no file may be missing or assigned to more than one
        batch, and no invented file may appear in a batch.
+    3. No batch file may match any pattern in ``task_files_exclude``.
     """
     feedbacks: list[JudgeFeedback] = []
     workspace = Path(workspace_dir)
@@ -54,7 +57,28 @@ def _algorithmic_map_checks(  # noqa: C901
                 )
             )
 
-    # ── Check 2: task_files coverage & disjointness ───────────────────────────
+    # ── Check 2: task_files_exclude — no excluded file may appear in any batch ──
+    if task_files_exclude:
+        for file_ref in all_batch_files:
+            base = _base_path(file_ref)
+            # Build candidate paths for matching: absolute and relative forms
+            abs_path = base if Path(base).is_absolute() else str(workspace / base)
+            for pattern in task_files_exclude:
+                if fnmatch.fnmatch(abs_path, pattern) or fnmatch.fnmatch(base, pattern):
+                    feedbacks.append(
+                        JudgeFeedback(
+                            file=file_ref,
+                            type=JudgeVerdict.ERROR,
+                            description=(
+                                f"File '{file_ref}' matches exclude pattern '{pattern}' "
+                                "and must not be included in any batch."
+                            ),
+                            proposal=f"Remove '{file_ref}' from batch_files.",
+                        )
+                    )
+                    break
+
+    # ── Check 3: task_files coverage & disjointness ───────────────────────────
     if task_files:
         task_bases = [_base_path(f) for f in task_files]
         batch_bases = [_base_path(f) for f in all_batch_files]
@@ -173,7 +197,9 @@ def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
     consolidation_instructions = state.get("consolidation_instructions", "")
 
     # ── Deterministic checks ──────────────────────────────────────────────────
-    algorithmic_feedbacks = _algorithmic_map_checks(config.workspace_dir, task_files, batches)
+    algorithmic_feedbacks = _algorithmic_map_checks(
+        config.workspace_dir, task_files, batches, config.task_files_exclude
+    )
 
     # ── LLM qualitative judge ─────────────────────────────────────────────────
     batch_size_constraint = (

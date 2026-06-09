@@ -1,17 +1,19 @@
-.PHONY: eval eval-simple setup-secrets
+.PHONY: eval eval-simple run-mlflow setup-secrets
 
-# Load .env for non-secret Azure endpoint configuration
--include .env
+# Load .env from repo root (non-secret Azure configuration)
+include ../../.env
 export
 
 setup-secrets:
-	@read -p "Enter value for 'dev-api-key' (leave empty to skip): " SECRET_VALUE; \
-	if [ -n "$$SECRET_VALUE" ]; then \
-		security add-generic-password -a "$(USER)" -s "azure-openai/dev-api-key" -w "$$SECRET_VALUE" -U; \
-		echo "Secret 'dev-api-key' stored in keychain under service 'azure-openai/dev-api-key'."; \
-	fi
+	$(MAKE) -C ../.. setup-secrets
 
 eval: eval-simple
 
 eval-simple:
 	mise exec -- uv run --project ../../lib python eval_simple.py
+	@echo ""
+	@echo "To inspect MLflow traces, run: make run-mlflow (opens http://localhost:5003)"
+
+run-mlflow:
+	@echo "MLflow UI starting at http://localhost:5003"
+	mise exec -- mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5003

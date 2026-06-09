@@ -19,8 +19,6 @@ EVAL_WORKSPACE_DIR = "dataset_simple/workspace"
 EVAL_EXPECTED_OUTPUT_PATH = Path("dataset_simple/expected_output.jsonl")
 EVAL_MIN_SIMILARITY = 0.5
 
-EVAL_MODEL = "gpt-4o"
-EVAL_MODEL_PROVIDER = "azure_openai"
 EVAL_KEYCHAIN_SERVICE = "azure-openai/dev-api-key"
 
 
@@ -42,11 +40,11 @@ def _model_factory(agent_name: str):  # noqa: ARG001
     from langchain.chat_models import init_chat_model
 
     return init_chat_model(
-        model=EVAL_MODEL,
-        model_provider=EVAL_MODEL_PROVIDER,
+        model=os.environ["DEEPWORKFLOW_MODEL"],
+        model_provider=os.environ["DEEPWORKFLOW_MODEL_PROVIDER"],
         api_key=_get_api_key(),
-        azure_endpoint=os.environ["EVAL_AZURE_ENDPOINT"],
-        api_version=os.environ["EVAL_API_VERSION"],
+        azure_endpoint=os.environ["DEEPWORKFLOW_AZURE_OPENAI_ENDPOINT"],
+        api_version=os.environ["DEEPWORKFLOW_API_VERSION"],
     )
 
 

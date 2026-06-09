@@ -6,12 +6,12 @@ task_instructions: "List all Python files and summarize their purpose."
 
 # Azure OpenAI model configuration
 # Non-secret config: set DEEPWORKFLOW_MODEL, DEEPWORKFLOW_MODEL_PROVIDER,
-#   DEEPWORKFLOW_AZURE_ENDPOINT, DEEPWORKFLOW_API_VERSION in .env
+#   DEEPWORKFLOW_AZURE_OPENAI_ENDPOINT, DEEPWORKFLOW_API_VERSION in .env
 # Secret: DEEPWORKFLOW_API_KEY in macOS Keychain (run 'make setup-secrets')
 model:
   model_provider: ${DEEPWORKFLOW_MODEL_PROVIDER}
   model: ${DEEPWORKFLOW_MODEL}
-  azure_endpoint: ${DEEPWORKFLOW_AZURE_ENDPOINT}
+  azure_endpoint: ${DEEPWORKFLOW_AZURE_OPENAI_ENDPOINT}
   api_version: ${DEEPWORKFLOW_API_VERSION}
   api_key: ${DEEPWORKFLOW_API_KEY}
 

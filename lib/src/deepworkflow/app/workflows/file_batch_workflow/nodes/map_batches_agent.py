@@ -146,6 +146,11 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
             "and identify all files that are relevant to the task instructions. "
             "Only include files that are meaningful to the task — do not add unrelated files."
         )
+        if config.task_files_exclude:
+            files_section += (
+                "\n\nFiles/patterns to ALWAYS EXCLUDE — do NOT include any matching file in any batch:\n"
+                + "\n".join(config.task_files_exclude)
+            )
         discover_or_group = (
             "Explore the workspace using your filesystem tools, discover the relevant files, "
             "then group them into logical batches (respecting the batch size constraint)."

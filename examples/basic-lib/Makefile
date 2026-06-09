@@ -1,15 +1,21 @@
-.PHONY: all run setup-secrets
+.PHONY: all run run-mlflow setup-secrets
 
 all: run
 
+# Load .env from repo root (non-secret Azure configuration)
+include ../../.env
+export
+
 setup-secrets:
-	@read -p "Enter value for 'api-key' (leave empty to skip): " SECRET_VALUE; \
-	if [ -n "$$SECRET_VALUE" ]; then \
-		security add-generic-password -a "$(USER)" -s "deepworkflow-example-basic-lib/api-key" -w "$$SECRET_VALUE" -U; \
-		echo "Secret 'api-key' stored in keychain under group 'deepworkflow-example-basic-lib'."; \
-	fi
+	$(MAKE) -C ../.. setup-secrets
 
 run:
 	mise exec -- uv lock --upgrade-package deepworkflow
 	mise exec -- uv sync --project . --frozen
 	mise exec -- uv run --project . python main.py
+	@echo ""
+	@echo "To inspect MLflow traces, run: make run-mlflow (opens http://localhost:5002)"
+
+run-mlflow:
+	@echo "MLflow UI starting at http://localhost:5002"
+	mise exec -- mlflow ui --backend-store-uri sqlite:///$(CURDIR)/mlflow.db --host 0.0.0.0 --port 5002

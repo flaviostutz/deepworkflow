@@ -32,16 +32,23 @@ def create_agent(
     return create_deep_agent(
         model=model,
         system_prompt=system_prompt,
-        backend=FilesystemBackend(root_dir=workspace_dir),
+        backend=FilesystemBackend(root_dir=workspace_dir, virtual_mode=True),
         permissions=permissions,
     )
 
 
-def _build_permissions(write_option: WriteOption) -> list[dict[str, str]] | None:
-    """Map WriteOption to deepagents filesystem permissions."""
+def _build_permissions(write_option: WriteOption) -> list | None:
+    """Map WriteOption to deepagents FilesystemPermission rules."""
+    from deepagents.middleware.filesystem import FilesystemPermission
+
     if write_option == WriteOption.READ_ONLY:
-        return [{"path": "**", "mode": "read"}]
+        return [
+            FilesystemPermission(operations=["read"], paths=["/**"]),
+            FilesystemPermission(operations=["write"], paths=["/**"], mode="deny"),
+        ]
     if write_option == WriteOption.WRITE_ANY:
-        return [{"path": "**", "mode": "write"}]
+        return [
+            FilesystemPermission(operations=["read", "write"], paths=["/**"]),
+        ]
     # WRITE_ONLY_TASK_FILES: permissions are set per-batch at call site
     return None

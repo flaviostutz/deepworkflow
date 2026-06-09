@@ -1,7 +1,19 @@
 UV_PROJECT_ENVIRONMENT ?= $(shell pwd)/.venv
 export UV_PROJECT_ENVIRONMENT
 
-.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval dev-mlflow
+# Load .env from repo root (non-secret Azure configuration). Fails if not found.
+# Copy .env.example to .env and fill in your values to get started.
+include .env
+export
+
+.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval run-mlflow setup-secrets
+
+setup-secrets:
+	@read -p "Enter value for 'azure-openai/dev-api-key' (leave empty to skip): " SECRET_VALUE; \
+	if [ -n "$$SECRET_VALUE" ]; then \
+		security add-generic-password -a "$(USER)" -s "azure-openai/dev-api-key" -w "$$SECRET_VALUE" -U; \
+		echo "Secret stored in keychain under service 'azure-openai/dev-api-key'."; \
+	fi
 
 setup:
 	mise install
@@ -32,10 +44,6 @@ test: test-unit
 eval:
 	$(MAKE) -C evals/file_batch_workflow eval
 
-dev-mlflow:
-	mise exec -- mlflow ui --host 0.0.0.0 --port 5000
-	open http://localhost:5000
- 
 clean:
 	rm -rf .venv .cache
 	$(MAKE) -C lib clean

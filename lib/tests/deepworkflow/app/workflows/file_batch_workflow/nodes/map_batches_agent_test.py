@@ -126,3 +126,88 @@ class TestParseMapOutput:
         )
         result = _parse_map_output(content)
         assert "error" in result
+
+
+class TestMapBatchesAgentExcludeSection:
+    def test_exclude_patterns_appear_in_prompt_when_discovering_files(self, mocker):
+        """When task_files is empty and task_files_exclude is set, the prompt must mention the exclude patterns."""
+        captured_prompts: list[str] = []
+
+        def capture_create_agent(**kwargs):
+            captured_prompts.append(kwargs["system_prompt"])
+            agent = mocker.MagicMock()
+            agent.invoke.return_value = {
+                "messages": [
+                    mocker.MagicMock(
+                        content='{"task_overview":"x","consolidation_instructions":"y","batches":[{"batch_files":["a.py"]}]}'
+                    )
+                ]
+            }
+            return agent
+
+        mocker.patch(
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent.create_agent",
+            side_effect=capture_create_agent,
+        )
+        mocker.patch(
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            return_value=DEFAULT_JUDGE_BATCH_INSTRUCTIONS,
+        )
+
+        config = DeepWorkflowConfig(
+            workspace_dir="/tmp",
+            task_instructions="Do something MUST be done",
+            model=_mock_model,
+            workspace_write_option=WriteOption.READ_ONLY,
+            judge_max_retries=1,
+            judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            task_files_exclude=["*.lock", "**/__pycache__/**"],
+        )
+        state = {"config": config, "task_files": []}
+        map_batches_agent(state)
+
+        assert len(captured_prompts) == 1
+        prompt = captured_prompts[0]
+        assert "*.lock" in prompt
+        assert "**/__pycache__/**" in prompt
+        assert "EXCLUDE" in prompt
+
+    def test_exclude_patterns_not_in_prompt_when_task_files_provided(self, mocker):
+        """When task_files is pre-populated (exclude was already applied), prompt must NOT add exclude section."""
+        captured_prompts: list[str] = []
+
+        def capture_create_agent(**kwargs):
+            captured_prompts.append(kwargs["system_prompt"])
+            agent = mocker.MagicMock()
+            agent.invoke.return_value = {
+                "messages": [
+                    mocker.MagicMock(
+                        content='{"task_overview":"x","consolidation_instructions":"y","batches":[{"batch_files":["a.py"]}]}'
+                    )
+                ]
+            }
+            return agent
+
+        mocker.patch(
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent.create_agent",
+            side_effect=capture_create_agent,
+        )
+        mocker.patch(
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            return_value=DEFAULT_JUDGE_BATCH_INSTRUCTIONS,
+        )
+
+        config = DeepWorkflowConfig(
+            workspace_dir="/tmp",
+            task_instructions="Do something MUST be done",
+            model=_mock_model,
+            workspace_write_option=WriteOption.READ_ONLY,
+            judge_max_retries=1,
+            judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            task_files_exclude=["*.lock"],
+        )
+        state = {"config": config, "task_files": ["a.py"]}
+        map_batches_agent(state)
+
+        assert len(captured_prompts) == 1
+        assert "*.lock" not in captured_prompts[0]

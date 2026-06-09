@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
 
 def main() -> None:
     """CLI entry point for deepworkflow."""
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
     parser = argparse.ArgumentParser(
         prog="deepworkflow",
         description="Run a map-plan-execute-judge-reduce workflow on files",
@@ -88,7 +91,7 @@ def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkfl
         judge_batch_instructions=raw.get("judge_batch_instructions"),
         max_failure_retries=raw.get("max_failure_retries", 0),
         judge_skip=raw.get("judge_skip", False),
-        mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "mlruns"),
+        mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "sqlite:///mlflow.db"),
     )
 
 
@@ -128,6 +131,15 @@ def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Call
 
     # Env-var keys serve as fallback; explicit api_key in the config dict takes precedence.
     merged = {**env_api_keys, **model_dict}
+
+    api_key = merged.get("api_key") or next(
+        (merged[k] for k in ("openai_api_key", "azure_openai_api_key", "anthropic_api_key", "google_api_key") if k in merged),
+        None,
+    )
+    if not api_key:
+        msg = "No API key found in model configuration. Set the appropriate environment variable (e.g. OPENAI_API_KEY, AZURE_OPENAI_API_KEY) or add 'api_key' to the model config."
+        raise ValueError(msg)
+    logging.info("Using API key starting with: %s...", api_key[:8])
 
     def factory_config(_agent_name: str) -> BaseChatModel:
         return init_chat_model(**merged)

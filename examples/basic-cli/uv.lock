@@ -640,6 +640,7 @@ version = "0.1.0"
 source = { path = "../../lib/dist/deepworkflow-0.1.0-py3-none-any.whl" }
 dependencies = [
     { name = "deepagents" },
+    { name = "keyring" },
     { name = "langchain-core" },
     { name = "langchain-openai" },
     { name = "langgraph" },
@@ -647,12 +648,13 @@ dependencies = [
     { name = "pyyaml" },
 ]
 wheels = [
-    { filename = "deepworkflow-0.1.0-py3-none-any.whl", hash = "sha256:4d527b20c0d103880b365807dfc72a3d78c88243ab1497923c9a74c08e9c154e" },
+    { filename = "deepworkflow-0.1.0-py3-none-any.whl", hash = "sha256:fb0d72e0677d354a9d9847675187cb3a573a17f36b4e2e15f91cea2b0a8ce639" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "deepagents", specifier = ">=0.6.8" },
+    { name = "keyring", specifier = ">=25.0" },
     { name = "langchain-core", specifier = ">=1.4.1" },
     { name = "langchain-openai", specifier = ">=0.3.0" },
     { name = "langgraph", specifier = ">=1.2.4" },

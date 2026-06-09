@@ -12,7 +12,11 @@ def _mock_model(_agent_name: str) -> None:  # type: ignore[return]
     return None
 
 
-def _make_config(workspace_dir: str, task_files: list[str] | None) -> DeepWorkflowConfig:
+def _make_config(
+    workspace_dir: str,
+    task_files: list[str] | None,
+    task_files_exclude: list[str] | None = None,
+) -> DeepWorkflowConfig:
     return DeepWorkflowConfig(
         workspace_dir=workspace_dir,
         task_instructions="test",
@@ -21,6 +25,7 @@ def _make_config(workspace_dir: str, task_files: list[str] | None) -> DeepWorkfl
         judge_max_retries=0,
         judge_on_max_retries=OnMaxRetriesExceeded.FAIL,
         task_files=task_files,
+        task_files_exclude=task_files_exclude,
     )
 
 
@@ -77,3 +82,42 @@ class TestResolveGlobs:
         with tempfile.TemporaryDirectory() as td:
             result = resolve_globs_step({"config": _make_config(td, None)})
             assert result == {"task_files": []}
+
+
+class TestResolveGlobsExcludes:
+    def test_exclude_explicit_path_removes_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            excl = str(Path(td, "b.py"))
+            result = resolve_globs_step({"config": _make_config(td, ["a.py", excl], task_files_exclude=[excl])})
+            assert result == {"task_files": ["a.py"]}
+
+    def test_exclude_glob_pattern_removes_matching_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "foo.py").touch()
+            Path(td, "bar.py").touch()
+            Path(td, "baz.txt").touch()
+            result = resolve_globs_step({"config": _make_config(td, ["*.py", "*.txt"], task_files_exclude=["*.txt"])})
+            py_files = sorted(result["task_files"])
+            assert all(f.endswith(".py") for f in py_files)
+            assert not any(f.endswith(".txt") for f in py_files)
+
+    def test_exclude_all_files_returns_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            result = resolve_globs_step(
+                {"config": _make_config(td, ["a.py", "b.py"], task_files_exclude=["a.py", "b.py"])}
+            )
+            assert "error" in result
+
+    def test_exclude_none_has_no_effect(self):
+        with tempfile.TemporaryDirectory() as td:
+            result = resolve_globs_step({"config": _make_config(td, ["a.py", "b.py"], task_files_exclude=None)})
+            assert result == {"task_files": ["a.py", "b.py"]}
+
+    def test_exclude_with_line_range_entry_still_filtered(self):
+        with tempfile.TemporaryDirectory() as td:
+            excl = str(Path(td, "a.py"))
+            result = resolve_globs_step(
+                {"config": _make_config(td, [excl + ":10-20"], task_files_exclude=[excl])}
+            )
+            # The only file (with line range) was excluded → resolves to nothing
+            assert "error" in result

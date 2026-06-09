@@ -1,11 +1,11 @@
 ---
-name: agentme-edr-policy-020-ai-workflow-development-standards
+name: agentme-edr-policy-021-ai-workflow-development-standards
 description: Defines the standard toolchain, framework, observability, and workflow patterns for building LangGraph workflows in Python. Use when scaffolding, reviewing, or extending AI workflow projects that orchestrate LLM calls, agents, and algorithmic nodes. For simple LLM calls see agentme-edr-018, for agentic patterns see agentme-edr-019.
 apply-to: AI workflow projects using LangGraph StateGraph built with Python
 valid-from: 2026-06-05
 ---
 
-# agentme-edr-policy-020: AI workflow development standards
+# agentme-edr-policy-021: AI workflow development standards
 
 ## Context and Problem Statement
 
@@ -33,11 +33,11 @@ Use **MLflow** for all workflow observability and evaluation:
 - **LLM-level auto-tracing:** Enable LangChain auto-tracing per [agentme-edr-018](018-ai-llm-development-standards.md) rule `03-llm-observability` by calling `mlflow.langchain.autolog()` during application startup. This captures inputs, outputs, token counts, and latency for every LangChain call within workflow nodes.
 - Log run parameters (model name, temperature, prompt version) and output metrics (accuracy, latency, token counts) using `mlflow.log_param` / `mlflow.log_metric`.
 - Run a local MLflow tracking server with `mlflow ui` to inspect runs during development. Do not require a remote MLflow server for local development.
-- The project Makefile MUST expose a `dev-mlflow` target to start the local MLflow tracking server, per [agentme-edr-008](../../devops/008-common-targets.md) rule `09-ai-project-dev-targets`.
+- The project Makefile MUST expose a `dev-mlflow` target to start the local MLflow tracking server, per [agentme-edr-008](../devops/008-common-targets.md) rule `09-ai-project-dev-targets`.
 
 #### 04-dataset-driven-accuracy-measurement
 
-Eval dataset and implementation requirements are defined in [agentme-edr-021](021-ai-eval-standards.md). Testing requirements (when evals are required, release gates) are defined in [agentme-edr-007](../principles/007-project-quality-standards.md) rule `09-ai-project-testing-requirements`.
+Eval dataset and implementation requirements are defined in [agentme-edr-028](028-ai-eval-standards.md). Testing requirements (when evals are required, release gates) are defined in [agentme-edr-007](../principles/007-project-quality-standards.md) rule `09-ai-project-testing-requirements`.
 
 #### 05-flow-documentation
 
@@ -101,7 +101,7 @@ lib/src/<package_name>/
 
 #### 08-workflow-evals
 
-Eval folder structure and script requirements are defined in [agentme-edr-021](021-ai-eval-standards.md).
+Eval folder structure and script requirements are defined in [agentme-edr-028](028-ai-eval-standards.md).
 
 #### 09-node-naming-conventions
 
@@ -258,5 +258,5 @@ result = graph.invoke(input_state, config={"thread_id": "session-123"})
 - [agentme-edr-026](026-pragmatic-hexagonal-architecture.md) — Adapter/application layer separation that defines the project layout
 - [agentme-edr-014](014-python-project-tooling.md) — Python project tooling and structure
 - [agentme-edr-024](024-ml-dataset-structure.md) — ML dataset structure for eval datasets
-- [agentme-edr-021](021-ai-eval-standards.md) — AI eval standards: folder structure, script requirements, and MLflow tracking
+- [agentme-edr-028](028-ai-eval-standards.md) — AI eval standards: folder structure, script requirements, and MLflow tracking
 - [agentme-edr-007](../principles/007-project-quality-standards.md) — Project quality standards including AI-tier testing requirements (rule `09-ai-project-testing-requirements`)

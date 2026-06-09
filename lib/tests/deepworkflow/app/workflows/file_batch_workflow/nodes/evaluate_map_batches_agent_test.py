@@ -155,3 +155,31 @@ class TestEvaluateMapBatchesAgent:
         feedbacks = _algorithmic_map_checks(str(workspace), [], batches)
         assert len(feedbacks) == 1
         assert feedbacks[0].type == JudgeVerdict.ERROR
+
+
+class TestAlgorithmicMapChecksExclude:
+    def test_excluded_absolute_file_in_batch_returns_error(self, workspace: Path) -> None:
+        excl = str(workspace / "a.py")
+        batches = [BatchDefinition(batch_files=[excl])]
+        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=[excl])
+        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
+        assert any("a.py" in f.description and "exclude" in f.description for f in errors)
+
+    def test_excluded_glob_pattern_in_batch_returns_error(self, workspace: Path) -> None:
+        batches = [BatchDefinition(batch_files=[str(workspace / "a.py"), str(workspace / "b.py")])]
+        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=["*.py"])
+        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
+        assert len(errors) >= 1
+        assert all("exclude" in f.description for f in errors)
+
+    def test_no_excluded_files_in_batch_passes(self, workspace: Path) -> None:
+        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
+        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=["*.txt"])
+        exclude_errors = [f for f in feedbacks if "exclude" in f.description]
+        assert exclude_errors == []
+
+    def test_none_exclude_has_no_effect(self, workspace: Path) -> None:
+        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
+        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=None)
+        exclude_errors = [f for f in feedbacks if "exclude" in f.description]
+        assert exclude_errors == []

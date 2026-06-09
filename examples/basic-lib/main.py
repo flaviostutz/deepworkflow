@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import getpass
 import os
 
 import keyring
@@ -10,7 +11,7 @@ from langchain_openai import AzureChatOpenAI
 from deepworkflow import DeepWorkflowConfig, run_workflow
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
-_GROUP = "deepworkflow-example-basic-lib"
+_KEYCHAIN_SERVICE = "azure-openai/dev-api-key"
 
 
 def _get_api_key() -> str:
@@ -21,10 +22,10 @@ def _get_api_key() -> str:
     3. Raise exception with a clear message when not found.
     Run 'make setup-secrets' to store the key.
     """
-    api_key = keyring.get_password(_GROUP, "api-key")
+    api_key = keyring.get_password(_KEYCHAIN_SERVICE, getpass.getuser())
     if api_key is None:
         msg = (
-            f"Secret 'api-key' not found in keychain under group '{_GROUP}'. "
+            f"Secret not found in keychain under service '{_KEYCHAIN_SERVICE}'. "
             "Run 'make setup-secrets' to store it."
         )
         raise RuntimeError(msg)
@@ -33,7 +34,7 @@ def _get_api_key() -> str:
 
 def main() -> None:
     # Non-secret Azure config: set these in your environment or a .env file
-    azure_endpoint = os.environ["DEEPWORKFLOW_AZURE_ENDPOINT"]
+    azure_endpoint = os.environ["DEEPWORKFLOW_AZURE_OPENAI_ENDPOINT"]
     api_version = os.environ["DEEPWORKFLOW_API_VERSION"]
     deployment = os.environ["DEEPWORKFLOW_MODEL"]
 

@@ -1,9 +1,9 @@
-.PHONY: all run setup-secrets
+.PHONY: all run run-mlflow setup-secrets
 
 all: run
 
-# Load .env if it exists (non-secret model provider configuration)
--include .env
+# Load .env from repo root (non-secret Azure configuration)
+include ../../.env
 export
 
 # Fetch API key from macOS Keychain (run 'make setup-secrets' to store it)
@@ -11,13 +11,15 @@ DEEPWORKFLOW_API_KEY := $(shell security find-generic-password -a "$(USER)" -s "
 export DEEPWORKFLOW_API_KEY
 
 setup-secrets:
-	@read -p "Enter value for 'api-key' (leave empty to skip): " SECRET_VALUE; \
-	if [ -n "$$SECRET_VALUE" ]; then \
-		security add-generic-password -a "$(USER)" -s "azure-openai/dev-api-key" -w "$$SECRET_VALUE" -U; \
-		echo "Secret 'api-key' stored in keychain under group 'deepworkflow-example-basic-cli'."; \
-	fi
+	$(MAKE) -C ../.. setup-secrets
 
 run:
 	mise exec -- uv lock --upgrade-package deepworkflow
 	mise exec -- uv sync --project . --frozen
 	mise exec -- uv run --project . deepworkflow --config deepworkflow.yml
+	@echo ""
+	@echo "To inspect MLflow traces, run: make run-mlflow (opens http://localhost:5001)"
+
+run-mlflow:
+	@echo "MLflow UI starting at http://localhost:5001"
+	mise exec -- mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5001

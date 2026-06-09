@@ -21,6 +21,28 @@ def _is_glob_pattern(entry: str) -> bool:
     return bool(_GLOB_CHARS.search(base))
 
 
+def _to_absolute_str(path_str: str, workspace_dir: Path) -> str:
+    """Return the absolute path string for a file reference, stripping any line-range suffix."""
+    base = _LINE_RANGE_SUFFIX.sub("", path_str)
+    p = Path(base)
+    if not p.is_absolute():
+        p = workspace_dir / base
+    return str(p)
+
+
+def _expand_excludes(workspace_dir: Path, patterns: list[str] | None) -> set[str]:
+    """Expand exclude patterns to a set of absolute path strings."""
+    if not patterns:
+        return set()
+    excluded: set[str] = set()
+    for pattern in patterns:
+        if _is_glob_pattern(pattern):
+            excluded.update(str(p) for p in workspace_dir.glob(pattern))
+        else:
+            excluded.add(_to_absolute_str(pattern, workspace_dir))
+    return excluded
+
+
 def resolve_globs_step(state: file_batch_workflow_state) -> dict:
     """Expand glob patterns in task_files to concrete file paths.
 
@@ -55,6 +77,11 @@ def resolve_globs_step(state: file_batch_workflow_state) -> dict:
         elif entry not in seen:
             seen.add(entry)
             resolved.append(entry)
+
+    # Filter out excluded files
+    exclude_set = _expand_excludes(workspace_dir, config.task_files_exclude)
+    if exclude_set:
+        resolved = [f for f in resolved if _to_absolute_str(f, workspace_dir) not in exclude_set]
 
     if not resolved:
         return {"error": "No files found after resolving glob patterns in task_files."}

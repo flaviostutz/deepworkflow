@@ -64,6 +64,14 @@ class DeepWorkflowConfig:
     suffixes (e.g. ``README.md:34-56``).  If ``None``, the map agent will discover
     relevant files from the workspace based on ``task_instructions``."""
 
+    task_files_exclude: list[str] | None = None
+    """List of files or glob patterns for files that must always be excluded from
+    processing batches.  Patterns are resolved relative to ``workspace_dir``.
+    Exclusion is applied after ``task_files`` glob expansion in ``resolve_globs_step``
+    and is also communicated to ``map_batches_agent`` when it discovers files itself.
+    The ``evaluate_map_batches_agent`` verifies that no excluded file appears in any
+    batch.  If ``None``, no files are excluded."""
+
     judge_min: JudgeVerdict = field(default=JudgeVerdict.WARNING)
     """Minimum judge verdict required to consider a batch execution successful.
     If the verdict is below this threshold the batch is retried with judge feedback.
@@ -97,7 +105,7 @@ class DeepWorkflowConfig:
     a fresh agent session.  The quality judge still runs only once, after all
     repeats complete."""
 
-    mlflow_tracking_uri: str = "mlruns"
-    """MLflow tracking URI used to store experiment runs.  Defaults to the local
-    ``mlruns/`` folder (file-based store).  Set to a remote URI such as
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
+    """MLflow tracking URI used to store experiment runs.  Defaults to a local
+    SQLite database (``mlflow.db``).  Set to a remote URI such as
     ``http://my-mlflow-server:5000`` to use a remote tracking server."""

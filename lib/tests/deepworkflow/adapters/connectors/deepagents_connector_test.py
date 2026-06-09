@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from deepagents.middleware.filesystem import FilesystemPermission
+
 from deepworkflow.adapters.connectors.deepagents_connector import _build_permissions, create_agent
 from deepworkflow.shared.types import WriteOption
 
@@ -9,11 +11,16 @@ from deepworkflow.shared.types import WriteOption
 class TestBuildPermissions:
     def test_read_only(self):
         result = _build_permissions(WriteOption.READ_ONLY)
-        assert result == [{"path": "**", "mode": "read"}]
+        assert result == [
+            FilesystemPermission(operations=["read"], paths=["/**"]),
+            FilesystemPermission(operations=["write"], paths=["/**"], mode="deny"),
+        ]
 
     def test_write_any(self):
         result = _build_permissions(WriteOption.WRITE_ANY)
-        assert result == [{"path": "**", "mode": "write"}]
+        assert result == [
+            FilesystemPermission(operations=["read", "write"], paths=["/**"]),
+        ]
 
     def test_write_only_task_files(self):
         result = _build_permissions(WriteOption.WRITE_ONLY_TASK_FILES)
@@ -40,6 +47,9 @@ class TestCreateWorkflowAgent:
             model=mock_llm,
             system_prompt="Test prompt",
             backend=mock_backend.return_value,
-            permissions=[{"path": "**", "mode": "read"}],
+            permissions=[
+                FilesystemPermission(operations=["read"], paths=["/**"]),
+                FilesystemPermission(operations=["write"], paths=["/**"], mode="deny"),
+            ],
         )
         assert agent == mock_create.return_value

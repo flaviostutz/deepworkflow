@@ -12,6 +12,7 @@ dependencies = [
     "langchain-core>=1.4.1",
     "langchain-openai>=0.3.0",
     "mlflow>=2.0",
+    "python-dotenv>=1.0",
     "pyyaml>=6.0",
 ]
 
