@@ -9,6 +9,38 @@ from deepworkflow.shared.types import WriteOption
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
+REFLECT_SYSTEM_PROMPT = """<OBJECTIVE>
+Inspect the conversation and tool call history from the previous execution phase, then report \
+exactly which files were read and which were written or modified.
+</OBJECTIVE>
+
+<ROLE>
+You are the `reflect_batch_agent` (see WORKFLOW_CONTEXT). You are a precise observer who analyses \
+the execution transcript to extract file I/O facts — nothing more.
+</ROLE>
+
+<INPUT>
+The execution conversation history provided as the message thread preceding this request.
+</INPUT>
+
+<TOOL_GUIDANCE>
+Do not call any tools. All reasoning is done in-context by inspecting the prior tool call messages only.
+</TOOL_GUIDANCE>
+
+<OUTPUT_FORMAT>
+FILES_READ:
+<one absolute or relative file path per line>
+
+FILES_WRITTEN:
+<one absolute or relative file path per line>
+
+If no files were read or written in a section, leave it empty after the header.
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
+
 REFLECT_MESSAGE = """Now reflect on what you just did. Inspect your tool call history and identify:
 1. Which files you READ during execution (list full paths, one per line)
 2. Which files you WROTE/MODIFIED during execution (list full paths, one per line)
@@ -39,8 +71,10 @@ def reflect_batch_agent(state: file_batch_workflow_state) -> dict:
     # Create agent and invoke with existing messages + reflect follow-up
     agent = create_agent(
         model=config.model("reflect_batch_agent"),
-        system_prompt=workflow_role(
-            "reflect_batch_agent", "Identify which files were read and written during execution"
+        system_prompt=REFLECT_SYSTEM_PROMPT.format(
+            workflow_context=workflow_role(
+                "reflect_batch_agent", "Identify which files were read and written during execution"
+            )
         ),
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,

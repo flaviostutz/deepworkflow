@@ -9,28 +9,42 @@ from deepworkflow.shared.types import WriteOption
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-PLAN_PROMPT = """{workflow_context}
+PLAN_PROMPT = """<OBJECTIVE>
+Produce a detailed, actionable step-by-step plan for accomplishing the task on the current batch of \
+files. Do not execute the plan.
+</OBJECTIVE>
 
-Given a set of files and a task instruction, produce a detailed step-by-step plan \
-for how to accomplish the task.
+<ROLE>
+You are the `plan_batch_agent` (see WORKFLOW_CONTEXT). You are an expert at analysing a file set and \
+designing a precise, ordered execution plan that a separate agent will carry out.
+</ROLE>
 
-Task instructions:
-{task_instructions}
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
+- task_overview: {task_overview}
 
-Task overview (broad strategy from the planning phase):
-{task_overview}
-
-Batch-specific instructions:
-{batch_instructions}
-
-Files to work with:
+Agent-specific inputs:
+- batch_instructions: {batch_instructions}
+- files_to_work_with:
 {batch_files}
-
-Write option: {write_option}
-
+- write_option: {write_option}
 {judge_feedback_section}
+</INPUT>
 
-Produce a clear, actionable plan. Do not execute the plan — only describe what steps should be taken."""
+<TOOL_GUIDANCE>
+Read the relevant files before planning so your plan is grounded in their actual content.
+Do not make any changes — only analyse and plan.
+</TOOL_GUIDANCE>
+
+<OUTPUT_FORMAT>
+A clear, actionable prose or numbered-step plan. Each step must describe exactly what should be done
+(file path, change type, rationale). Do not include any implementation — only the plan.
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def plan_batch_agent(state: file_batch_workflow_state) -> dict:

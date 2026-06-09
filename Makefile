@@ -6,7 +6,7 @@ export UV_PROJECT_ENVIRONMENT
 include .env
 export
 
-.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval run-mlflow setup-secrets
+.PHONY: setup install build lint lint-fix test-unit test-examples test clean all eval dev-mlflow setup-secrets
 
 setup-secrets:
 	@read -p "Enter value for 'azure-openai/dev-api-key' (leave empty to skip): " SECRET_VALUE; \
@@ -43,6 +43,9 @@ test: test-unit
 
 eval:
 	$(MAKE) -C evals/file_batch_workflow eval
+
+dev-mlflow:
+	$(MAKE) -C evals/file_batch_workflow dev-mlflow
 
 clean:
 	rm -rf .venv .cache

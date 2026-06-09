@@ -9,35 +9,48 @@ from deepworkflow.shared.types import WriteOption
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-PROGRESS_PROMPT = """{workflow_context}
+PROGRESS_PROMPT = """<OBJECTIVE>
+Decide whether the latest execution pass made meaningful progress toward completing the task.
+</OBJECTIVE>
 
-You are the **progress judge** for a single batch execution pass.
-Your role is to decide whether the LATEST pass made meaningful progress toward completing the
-task — NOT to evaluate the overall quality of the result. Quality evaluation is handled by a
-separate judge (evaluate_batch_quality_agent) that runs after all passes complete.
+<ROLE>
+You are the `evaluate_batch_progress_agent` (see WORKFLOW_CONTEXT). You are the progress judge: a \
+lightweight checker who assesses whether substantial, non-trivial work was done in the most recent \
+pass — not whether the final result is high quality (that is the quality judge's responsibility).
+</ROLE>
 
-Task instructions: {task_instructions}
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
 
-Files in scope: {batch_files}
+Agent-specific inputs:
+- files_in_scope:
+{batch_files}
+- execute_output: {execute_output}
+- files_read: {files_read}
+- files_written: {files_written}
+</INPUT>
 
-Execution output:
-{execute_output}
+<GUARDRAILS>
+- Do NOT evaluate the overall quality of the result — that is the quality judge's responsibility
+  (`evaluate_batch_quality_agent`).
+- Only assess whether this pass made meaningful, non-trivial progress (e.g. files were changed in
+  a useful way, substantial work was done).
+</GUARDRAILS>
 
-Files read: {files_read}
-Files written: {files_written}
-
-Did this pass make meaningful, non-trivial progress toward completing the task?
-Consider: were files actually changed in a useful way? Was substantial work done?
-Answer YES if real progress was made, NO if the pass was a no-op or made negligible changes.
-
-Respond in exactly this format:
+<OUTPUT_FORMAT>
 PROGRESS: YES
 REASON: <brief explanation>
 
 or
 
 PROGRESS: NO
-REASON: <brief explanation>"""
+REASON: <brief explanation>
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def evaluate_batch_progress_agent(state: file_batch_workflow_state) -> dict:

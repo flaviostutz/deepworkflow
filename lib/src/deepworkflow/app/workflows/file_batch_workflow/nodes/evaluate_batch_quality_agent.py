@@ -10,56 +10,68 @@ from deepworkflow.shared.types import WriteOption
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-EVALUATE_PROMPT = """{workflow_context}
+EVALUATE_PROMPT = """<OBJECTIVE>
+Perform the final quality check on the overall batch execution results and return structured \
+feedback with a verdict.
+</OBJECTIVE>
 
-You are the **quality judge** for a single batch execution.
-Your role is to perform the FINAL quality check on the overall results — this runs once after
-all execution passes for the batch are complete. You are NOT checking for progress or deciding
-whether to repeat; that is the responsibility of the progress judge (evaluate_batch_progress_agent).
+<ROLE>
+You are the `evaluate_batch_quality_agent` (see WORKFLOW_CONTEXT). You are the quality judge: you \
+run once after all execution passes for a batch complete and decide whether the result meets the \
+required quality bar — not whether to repeat (that is the progress judge's responsibility).
+</ROLE>
 
-Task instructions: {task_instructions}
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
 
-Files in scope: {batch_files}
+Agent-specific inputs:
+- files_in_scope:
+{batch_files}
+- execute_output: {execute_output}
+- files_read: {files_read}
+- files_written: {files_written}
+- judge_instructions: {judge_instructions}
+</INPUT>
 
-Execution output:
-{execute_output}
+<STEPS>
+1. Read the modified files from the workspace to inspect their actual content.
+2. Evaluate the work against judge_instructions and task_instructions for each file.
+3. Apply the quality language severity mapping:
+   - MUST / REQUIRED / MANDATORY → non-compliance is an ERROR
+   - SHOULD / RECOMMENDED → non-compliance is a WARNING
+   - COULD / MAY / SUGGESTED → non-compliance is an INFO
+4. Produce one feedback entry per file, plus an aggregate verdict.
+</STEPS>
 
-Files read: {files_read}
-Files written: {files_written}
+<GUARDRAILS>
+- Do NOT decide whether to repeat passes — that is the progress judge's responsibility.
+- The verdict MUST be the worst (lowest) type across all feedbacks.
+</GUARDRAILS>
 
-{judge_instructions}
-
-Evaluate the work quality. For each file, provide feedback.
-
-Quality language convention: when evaluating criteria from task_instructions or
-judge_instructions, map the severity based on the language used:
-- MUST / REQUIRED / MANDATORY → non-compliance is an ERROR
-- SHOULD / RECOMMENDED → non-compliance is a WARNING
-- COULD / MAY / SUGGESTED → non-compliance is an INFO
-Apply this mapping when interpreting any instructions that use this language.
-
-Respond in this JSON format:
+<OUTPUT_FORMAT>
 {{
   "judge_feedbacks": [
     {{
       "file": "path/to/file",
       "type": "OK|INFO|WARNING|ERROR",
       "description": "explanation",
-      "proposal": "how to fix the issue"
+      "proposal": "how to fix the issue (required for WARNING or ERROR; empty for OK or INFO)"
     }}
   ],
   "judge_verdict": "OK|INFO|WARNING|ERROR"
 }}
 
-For each feedback item with type WARNING or ERROR, include a concrete
-"proposal" describing how to fix the issue. For OK or INFO items,
-proposal can be empty.
-
-The verdict should be the WORST (lowest) type across all feedbacks.
+Verdict meaning:
 - OK: Work is correct and complete
 - INFO: Minor suggestions, but acceptable
 - WARNING: Issues that should be fixed
-- ERROR: Critical problems that must be fixed"""
+- ERROR: Critical problems that must be fixed
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def evaluate_batch_quality_agent(state: file_batch_workflow_state) -> dict:

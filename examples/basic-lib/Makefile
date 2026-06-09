@@ -1,4 +1,4 @@
-.PHONY: all run run-mlflow setup-secrets
+.PHONY: all run dev-mlflow setup-secrets
 
 all: run
 
@@ -14,8 +14,8 @@ run:
 	mise exec -- uv sync --project . --frozen
 	mise exec -- uv run --project . python main.py
 	@echo ""
-	@echo "To inspect MLflow traces, run: make run-mlflow (opens http://localhost:5002)"
+	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5002)"
 
-run-mlflow:
+dev-mlflow:
 	@echo "MLflow UI starting at http://localhost:5002"
 	mise exec -- mlflow ui --backend-store-uri sqlite:///$(CURDIR)/mlflow.db --host 0.0.0.0 --port 5002

@@ -1,4 +1,4 @@
-.PHONY: all run run-mlflow setup-secrets
+.PHONY: all run dev-mlflow setup-secrets
 
 all: run
 
@@ -18,8 +18,8 @@ run:
 	mise exec -- uv sync --project . --frozen
 	mise exec -- uv run --project . deepworkflow --config deepworkflow.yml
 	@echo ""
-	@echo "To inspect MLflow traces, run: make run-mlflow (opens http://localhost:5001)"
+	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5001)"
 
-run-mlflow:
+dev-mlflow:
 	@echo "MLflow UI starting at http://localhost:5001"
 	mise exec -- mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5001

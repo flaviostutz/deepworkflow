@@ -116,8 +116,6 @@ class TestResolveGlobsExcludes:
     def test_exclude_with_line_range_entry_still_filtered(self):
         with tempfile.TemporaryDirectory() as td:
             excl = str(Path(td, "a.py"))
-            result = resolve_globs_step(
-                {"config": _make_config(td, [excl + ":10-20"], task_files_exclude=[excl])}
-            )
+            result = resolve_globs_step({"config": _make_config(td, [excl + ":10-20"], task_files_exclude=[excl])})
             # The only file (with line range) was excluded → resolves to nothing
             assert "error" in result

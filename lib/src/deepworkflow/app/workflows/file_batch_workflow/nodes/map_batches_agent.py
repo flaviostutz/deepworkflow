@@ -35,69 +35,89 @@ If no specific quality criteria can be extracted, return an empty string."""
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-MAP_BATCHES_PROMPT = """{workflow_context}
+MAP_BATCHES_PROMPT = """<OBJECTIVE>
+Analyze the task and list of files, then split the work into logical, non-overlapping batches \
+for parallel processing. Return a structured error response when task instructions are insufficient.
+</OBJECTIVE>
 
-You are a batch planning agent. Your job is to analyze the task and files, then split the work into \
-logical batches that will be processed separately.
+<ROLE>
+You are the `map_batches_agent` (see WORKFLOW_CONTEXT). You are an expert at partitioning large \
+file sets into balanced, directory-aware batches that minimise write conflicts and allow each batch \
+to converge independently to a consistent result.
+</ROLE>
 
-Task instructions:
-{task_instructions}
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
 
+Agent-specific inputs:
+- files:
 {files_section}
-
-NOTE: Every file listed above is an **existing file in the workspace**. Do not invent or assume any file that is not listed (or discovered via filesystem exploration). Only reference real, existing paths.
-
-Batch size constraint: {batch_size_constraint}
-
+- batch_size_constraint: {batch_size_constraint}
 {judge_feedback_section}
 
 Quality language convention (used throughout this workflow):
 - MUST / REQUIRED / MANDATORY → failure to comply is an ERROR
 - SHOULD / RECOMMENDED → failure to comply is a WARNING
 - COULD / MAY / SUGGESTED → failure to comply is an INFO
+</INPUT>
 
-Your mission:
-1. Validate the task_instructions before proceeding:
+<STEPS>
+1. Validate task_instructions before proceeding:
    - Are they sufficient to define a batching strategy?
-   - Do they define expected quality standards using the MANDATORY/ADVISORY language above (MUST/SHOULD/COULD)? If quality criteria are present but lack this language, treat it as ambiguous and include that in the error message.
+   - Do they define expected quality standards using MUST/SHOULD/COULD language? If quality criteria
+     are present but lack this language, treat it as ambiguous and include that in the error message.
    - Is it clear how to consolidate the final result after all batches complete?
-   If any of the above is missing or unclear, respond immediately with an error.
+   If any of the above is missing or unclear, respond immediately with an error (see OUTPUT_FORMAT).
 2. Scan the workspace to understand the codebase structure and context.
 3. {discover_or_group}
-4. Produce a task_overview — a high-level strategy/context that all batches should follow. Use MUST/SHOULD/COULD language to express quality requirements that apply to all batches.
-5. Produce consolidation_instructions — how to merge/consolidate results from all batches at the end.
-6. For each batch, produce batch_instructions — why those files are grouped together \
-AND specific instructions that the execute agent must follow when processing this batch. Use MUST/SHOULD/COULD language to express quality requirements specific to this batch.
+4. Produce a `task_overview` — a high-level strategy and context that all batches should follow.
+   Use MUST/SHOULD/COULD language to express quality requirements that apply to all batches.
+5. Produce `consolidation_instructions` — how to merge/consolidate results from all batches at the end.
+6. For each batch, produce `batch_instructions` — why those files are grouped together AND specific
+   instructions the execute agent must follow when processing this batch. Use MUST/SHOULD/COULD
+   language to express quality requirements specific to this batch.
+</STEPS>
 
-IMPORTANT:
-- Every file selected for processing MUST appear in exactly one batch (no file lost, no file duplicated). No file may be omitted or assigned to more than one batch.
-- All files in `batch_files` MUST be existing files in the workspace. Do not invent paths or reference files that do not exist.
-- Each batch's instructions MUST be coherent with the task_instructions and with the specific group of files in that batch.
-- If the task involves creating or modifying **output files** (files to be produced or changed as a result of the task), include the full list of expected output files either in `task_overview` (when shared across all batches) or in the relevant `batch_instructions` (when specific to a batch). This enables all batches to know upfront which output files they are responsible for and avoids conflicts.
-- The task_overview MUST provide enough shared context, target outputs, or guidelines for all batches to run in parallel and still converge to a consistent result — for example: a target list of files to be created, naming conventions, or design guidelines that prevent conflicts across batches.
-- Minimize write concurrency: group files that are likely to be written together into the same batch to avoid multiple batches modifying the same files simultaneously.
+<GUARDRAILS>
+- Every file selected for processing MUST appear in exactly one batch (no file lost, no file
+  duplicated). No file may be omitted or assigned to more than one batch.
+- All files in `batch_files` MUST be existing files in the workspace. Do not invent paths or
+  reference files that do not exist.
+- Each batch's instructions MUST be coherent with task_instructions and with the specific group
+  of files in that batch.
+- If the task involves creating or modifying output files, include the full list of expected output
+  files in `task_overview` (shared across all batches) or in `batch_instructions` (batch-specific).
+- `task_overview` MUST provide enough shared context, target outputs, or guidelines for all batches
+  to run in parallel and still converge to a consistent result (e.g. a target list of files to be
+  created, naming conventions, or design guidelines that prevent conflicts across batches).
+- Minimise write concurrency: group files that are likely to be written together into the same
+  batch to avoid multiple batches modifying the same files simultaneously.
 - If batch size constraint is "all in one batch", put ALL files in a single batch.
 - Do NOT perform the actual task — only plan the batching strategy.
-- If the task_instructions are too confusing, ambiguous, or insufficient for you to create meaningful \
-batches or derive consolidation instructions, respond with an error.
+</GUARDRAILS>
 
-Respond in JSON format:
-
+<OUTPUT_FORMAT>
 On success:
 {{
   "task_overview": "Overall strategy and context for all batches...",
   "consolidation_instructions": "How to consolidate/merge results from all batches...",
   "batches": [
-    {{"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Grouping rationale..."}},
-    {{"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale..."}}
+    {{"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Grouping rationale and specific instructions..."}},
+    {{"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale and specific instructions..."}}
   ]
 }}
 
-On failure (unclear instructions):
+On failure (unclear or insufficient instructions):
 {{
   "error": true,
   "message": "The task instructions are insufficient because... To improve, consider..."
-}}"""
+}}
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 _MANDATORY_ADVISORY_KEYWORDS = {"must", "required", "mandatory", "should", "recommended", "could", "may", "suggested"}

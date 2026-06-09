@@ -127,60 +127,76 @@ def _algorithmic_map_checks(  # noqa: C901, PLR0912
     return feedbacks
 
 
-EVALUATE_MAP_PROMPT = """{workflow_context}
+EVALUATE_MAP_PROMPT = """<OBJECTIVE>
+Judge the quality of the batch planning step and return structured feedback with a verdict.
+</OBJECTIVE>
 
-You are a judge evaluating the quality of a batch planning step.
+<ROLE>
+You are the `evaluate_map_batches_agent` (see WORKFLOW_CONTEXT). You are an expert judge evaluating \
+whether a batch plan is coherent, well-scoped, and ready for parallel execution.
+</ROLE>
 
-Note: file existence, task_files coverage, and batch disjointness are verified
-algorithmically before this prompt runs — do NOT re-check those.
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
 
-Quality language convention: when evaluating criteria derived from task_instructions
-or batch instructions, map the severity based on the language used:
+Agent-specific inputs:
+- original_files_to_process ({file_count} total — all are existing files in the workspace):
+{task_files}
+- batch_size_constraint: {batch_size_constraint}
+- proposed_batch_plan:
+  - task_overview: {task_overview}
+  - consolidation_instructions: {consolidation_instructions}
+  - batches ({batch_count}):
+{batches_summary}
+
+Note: file existence, task_files coverage, and batch disjointness are verified algorithmically
+before this runs — do NOT re-check those.
+
+Quality language convention: when evaluating criteria derived from task_instructions or batch
+instructions, map the severity based on the language used:
 - MUST / REQUIRED / MANDATORY → non-compliance is an ERROR
 - SHOULD / RECOMMENDED → non-compliance is a WARNING
 - COULD / MAY / SUGGESTED → non-compliance is an INFO
-Apply this mapping when interpreting any instructions that use this language.
+</INPUT>
 
-Task instructions: {task_instructions}
-
-Original files to process ({file_count} total) — all are **existing files in the workspace**:
-{task_files}
-
-Batch size constraint: {batch_size_constraint}
-
-Proposed batch plan:
-- Task overview: {task_overview}
-- Consolidation instructions: {consolidation_instructions}
-- Batches ({batch_count}):
-{batches_summary}
-
+<STEPS>
 Evaluate the batch plan against these criteria:
 1. **Batch size**: Each batch respects the batch size constraint.
 2. **Logical grouping**: Files are grouped in a way that makes sense for the task.
-3. **Instructions quality**: task_overview, consolidation_instructions, and batch_instructions are clear and actionable.
-4. **Batch coherence**: Each batch's instructions are coherent with the task_instructions and with the specific group of files assigned to that batch.
-5. **Parallel convergence**: The task_overview provides enough shared strategy, target outputs, or guidelines for all batches to run independently and still converge to a consistent, non-conflicting result (e.g., a shared target file list, naming conventions, or design guidelines that all batches must follow).
-6. **Output files declared**: If the task involves creating or modifying output files, the expected output file list is declared either in task_overview (for shared outputs) or in the relevant batch_instructions (for batch-specific outputs). This ensures each batch knows which output files it is responsible for.
-7. **Write concurrency**: The batch grouping minimizes the risk of multiple batches writing to the same files concurrently — files that are likely to be written together should be in the same batch.
+3. **Instructions quality**: task_overview, consolidation_instructions, and batch_instructions are
+   clear and actionable.
+4. **Batch coherence**: Each batch's instructions are coherent with the task_instructions and with
+   the specific group of files assigned to that batch.
+5. **Parallel convergence**: The task_overview provides enough shared strategy, target outputs, or
+   guidelines for all batches to run independently and still converge to a consistent,
+   non-conflicting result.
+6. **Output files declared**: If the task involves creating or modifying output files, the expected
+   output file list is declared either in task_overview (for shared outputs) or in the relevant
+   batch_instructions (for batch-specific outputs).
+7. **Write concurrency**: The batch grouping minimises the risk of multiple batches writing to the
+   same files concurrently.
+</STEPS>
 
-Respond in JSON format:
+<OUTPUT_FORMAT>
 {{
   "judge_feedbacks": [
     {{
       "file": "general",
       "type": "OK|INFO|WARNING|ERROR",
       "description": "explanation",
-      "proposal": "how to fix the issue"
+      "proposal": "how to fix the issue (required for WARNING or ERROR; empty for OK or INFO)"
     }}
   ],
   "judge_verdict": "OK|INFO|WARNING|ERROR"
 }}
 
-For each feedback item with type WARNING or ERROR, include a concrete
-"proposal" describing how to fix the issue. For OK or INFO items,
-proposal can be empty.
+The verdict MUST be the worst (lowest) type across all feedbacks.
+</OUTPUT_FORMAT>
 
-The verdict should be the WORST (lowest) type across all feedbacks."""
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:

@@ -8,31 +8,46 @@ from deepworkflow.shared.prompts import workflow_role
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-EXECUTE_PROMPT = """{workflow_context}
+EXECUTE_PROMPT = """<OBJECTIVE>
+Execute the provided plan on the current batch of files and produce a summary of what was done.
+</OBJECTIVE>
 
-Follow the plan below to accomplish the task.
+<ROLE>
+You are the `execute_batch_agent` (see WORKFLOW_CONTEXT). You are an expert at carrying out a \
+well-defined plan precisely, reading and modifying files according to the task instructions and \
+write option.
+</ROLE>
 
-Task instructions:
-{task_instructions}
+<INPUT>
+Workflow-level inputs:
+- task_instructions: {task_instructions}
+- task_overview: {task_overview}
 
-Task overview (broad strategy):
-{task_overview}
-
-Batch-specific instructions:
-{batch_instructions}
-
-Files to work with:
+Agent-specific inputs:
+- batch_instructions: {batch_instructions}
+- files_to_work_with:
 {batch_files}
-
-Write option: {write_option}
-
-Plan to follow:
+- write_option: {write_option}
+- plan_to_follow:
 {plan_output}
-
 {judge_feedback_section}
+</INPUT>
 
-Execute the plan now. If write option is 'read-only', produce analysis/report output only. \
-If write option allows writing, make the necessary file changes."""
+<GUARDRAILS>
+- If write_option is 'read-only', produce analysis or report output only — do NOT write or modify
+  any files.
+- If write_option allows writing, make the necessary file changes as described in the plan.
+- Address all judge feedback from the previous attempt when present.
+</GUARDRAILS>
+
+<OUTPUT_FORMAT>
+A prose summary describing what was done: which files were read or modified, what changes were made,
+and any notable observations or issues encountered.
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def execute_batch_agent(state: file_batch_workflow_state) -> dict:

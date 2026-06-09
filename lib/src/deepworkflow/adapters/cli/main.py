@@ -133,7 +133,11 @@ def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Call
     merged = {**env_api_keys, **model_dict}
 
     api_key = merged.get("api_key") or next(
-        (merged[k] for k in ("openai_api_key", "azure_openai_api_key", "anthropic_api_key", "google_api_key") if k in merged),
+        (
+            merged[k]
+            for k in ("openai_api_key", "azure_openai_api_key", "anthropic_api_key", "google_api_key")
+            if k in merged
+        ),
         None,
     )
     if not api_key:

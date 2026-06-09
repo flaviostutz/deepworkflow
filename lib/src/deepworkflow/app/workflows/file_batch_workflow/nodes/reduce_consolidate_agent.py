@@ -8,17 +8,36 @@ from deepworkflow.shared.prompts import workflow_role
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-CONSOLIDATE_PROMPT = """{workflow_context}
+CONSOLIDATE_PROMPT = """<OBJECTIVE>
+Review all batch execution results and the workspace state to produce a final, consolidated output.
+</OBJECTIVE>
 
-Your job is to produce a final consolidated output from all the batch execution results.
+<ROLE>
+You are the `reduce_consolidate_agent` (see WORKFLOW_CONTEXT). You are an expert synthesiser who \
+combines the individual batch results into a coherent, holistic final output following the \
+consolidation instructions.
+</ROLE>
 
-Consolidation instructions:
-{consolidation_instructions}
-
-Batch outputs:
+<INPUT>
+Agent-specific inputs:
+- consolidation_instructions: {consolidation_instructions}
+- batch_outputs_summary:
 {batch_outputs_summary}
+</INPUT>
 
-Review the workspace for the combined result and produce a holistic evaluation and final output."""
+<TOOL_GUIDANCE>
+Review the workspace to inspect the combined result of all batches before producing the final
+output. Use file reading tools to verify the actual state of the workspace.
+</TOOL_GUIDANCE>
+
+<OUTPUT_FORMAT>
+A holistic evaluation and final consolidated output following the consolidation_instructions.
+The output should synthesise all batch results into a coherent whole.
+</OUTPUT_FORMAT>
+
+<WORKFLOW_CONTEXT>
+{workflow_context}
+</WORKFLOW_CONTEXT>"""
 
 
 def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
