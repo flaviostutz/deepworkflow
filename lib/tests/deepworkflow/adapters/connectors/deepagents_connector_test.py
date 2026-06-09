@@ -42,7 +42,7 @@ class TestCreateWorkflowAgent:
             write_option=WriteOption.READ_ONLY,
         )
 
-        mock_backend.assert_called_once_with(root_dir="/tmp/workspace")
+        mock_backend.assert_called_once_with(root_dir="/tmp/workspace", virtual_mode=True)
         mock_create.assert_called_once_with(
             model=mock_llm,
             system_prompt="Test prompt",
