@@ -51,6 +51,7 @@ or
 PROGRESS: NO
 REASON: <brief explanation>"""
 
+
 def evaluate_batch_progress_agent(state: file_batch_workflow_state) -> dict:
     """Evaluate whether the latest pass made meaningful progress toward the task goal."""
     config = state["config"]

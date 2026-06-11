@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-import pytest
+if TYPE_CHECKING:
+    import pytest
 
 from deepworkflow.shared.types import BatchOutput, JudgeVerdict, WorkflowLogLevel
 from deepworkflow.shared.workflow_log import (
@@ -205,7 +207,7 @@ class TestPrintSummary:
             execute_output="done",
         )
 
-    def _make_config(self, judge_skip: bool = False):
+    def _make_config(self, *, judge_skip: bool = False):
         config = MagicMock()
         config.judge_min = JudgeVerdict.WARNING
         config.judge_skip = judge_skip

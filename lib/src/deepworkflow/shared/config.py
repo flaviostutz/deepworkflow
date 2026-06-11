@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import uuid as _uuid
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from langchain_core.language_models import BaseChatModel
 
 # Module-level registry mapping config_id → model factory callable.
@@ -29,10 +30,11 @@ class _ModelRef:
     def __call__(self, agent_name: str) -> BaseChatModel:
         factory = _model_registry.get(self._config_id)
         if factory is None:
-            raise RuntimeError(
+            msg = (
                 f"No model factory found for config_id={self._config_id!r}. "
                 "The factory may have been lost if the process restarted."
             )
+            raise RuntimeError(msg)
         return factory(agent_name)
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from deepworkflow.shared.config import DeepWorkflowConfig
+import pytest
+
+from deepworkflow.shared.config import DeepWorkflowConfig, _ModelRef
 from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
 
 
@@ -60,3 +62,10 @@ class TestDeepWorkflowConfig:
 
         with pytest.raises(AttributeError):
             config.workspace_dir = "/other"  # type: ignore[misc]
+
+
+class TestModelRef:
+    def test_raises_when_factory_not_in_registry(self):
+        ref = _ModelRef("nonexistent-config-id")
+        with pytest.raises(RuntimeError, match="No model factory found"):
+            ref("agent_name")

@@ -113,4 +113,3 @@ class TestEvaluateBatchProgressAgent:
         config, _ = _make_config("PROGRESS: NO\nREASON: no tool calls observed")
         result = evaluate_batch_progress_agent(_make_state(config=config, execute_messages=[]))
         assert result["batch_progress"] is False
-

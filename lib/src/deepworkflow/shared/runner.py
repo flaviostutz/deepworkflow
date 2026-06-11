@@ -5,6 +5,7 @@ import json
 import shutil
 import uuid
 from pathlib import Path
+from typing import Any
 
 import mlflow
 from langgraph.checkpoint.memory import MemorySaver
@@ -15,7 +16,7 @@ from deepworkflow.shared.types import WorkflowLogLevel, WorkflowResult
 from deepworkflow.shared.workflow_log import WorkflowStatsCallback, new_run_stats, print_summary
 
 
-def _console_span_printer(span: object) -> None:
+def _console_span_printer(span: Any) -> None:
     """Print a completed MLflow span to stdout as JSON."""
     print(json.dumps(span.to_dict(), indent=2))  # noqa: T201
 

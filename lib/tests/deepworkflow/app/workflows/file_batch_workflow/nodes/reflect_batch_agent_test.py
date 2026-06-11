@@ -35,7 +35,7 @@ def _make_config(response: str = "") -> tuple[DeepWorkflowConfig, FakeListChatMo
 
 class TestReflectBatchAgent:
     def test_no_execute_messages_returns_empty(self):
-        config, model = _make_config("")
+        config, _ = _make_config("")
         result = reflect_batch_agent({"config": config, "execute_messages": []})
         assert result == {"files_read": [], "files_written": []}
 

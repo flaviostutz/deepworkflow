@@ -48,7 +48,7 @@ STANDARD_USER_MESSAGE = "reach your objective taking into consideration the inpu
 def build_context(workspace_dir: str | None = None, max_files: int = 500) -> str:
     """Build a context string with current date, OS, and optionally workspace structure."""
     lines = [
-        f"The current date is {datetime.date.today().isoformat()}.",
+        f"The current date is {datetime.datetime.now(datetime.UTC).date().isoformat()}.",
         f"The current OS is: {platform.system()}",
     ]
     if workspace_dir is not None:
@@ -94,7 +94,7 @@ def _build_workspace_structure(workspace_dir: str, max_files: int = 500) -> str:
     return "\n".join(lines)
 
 
-def build_agent_prompt(
+def build_agent_prompt(  # noqa: PLR0913
     *,
     objective: str,
     role: str,

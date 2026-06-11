@@ -1,6 +1,6 @@
 version: 1
 packages:
-  git:https://github.com/flaviostutz/agentme@main: ee49e4a6eeb4
+  git:https://github.com/flaviostutz/agentme@main: 3e65bb96d386
   xdrs-core@0.28.3: 0.28.3
 sets:
   - package: git:https://github.com/flaviostutz/agentme@main
@@ -30,7 +30,6 @@ files:
     - .xdrs/agentme/edrs/devops/skills/002-monorepo-setup/SKILL.md|agentme|0.12.0|file|468ce8ad0ab2|0
     - .xdrs/agentme/edrs/governance/013-contributing-guide-requirements.md|agentme|0.12.0|file|854d5407a2e0|0
     - .xdrs/agentme/edrs/observability/011-service-health-check-endpoint.md|agentme|0.12.0|file|42d59b1d6062|0
-    - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|agentme|0.12.0|file|5bfe54e8a3fe|0
     - .xdrs/agentme/edrs/principles/004-unit-test-requirements.md|agentme|0.12.0|file|7e9e80eb341d|0
     - .xdrs/agentme/edrs/principles/009-error-handling.md|agentme|0.12.0|file|e4d691cb8a4f|0
     - .xdrs/agentme/edrs/principles/012-continuous-xdr-enrichment.md|agentme|0.12.0|file|10d150aa359e|0
@@ -93,9 +92,10 @@ files:
     - .xdrs/agentme/edrs/application/028-ai-eval-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|def9601b337b|0
     - .xdrs/agentme/edrs/application/010-golang-project-tooling.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|9242df8fb773|0
     - .xdrs/agentme/edrs/application/018-ai-llm-development-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|3610f826f156|0
-    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|6a47f4b2cf50|0
     - .xdrs/agentme/edrs/application/025-ai-agent-xdrs-knowledge-layer.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|1f494fd2f614|0
     - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|43ae7fd37f6a|0
     - .xdrs/agentme/edrs/principles/007-project-quality-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|c9d3b3b87944|0
-checksum: bfbb653322f3
+    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|3e65bb96d386|file|29448460b042|0
+    - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|https://github.com/flaviostutz/agentme|3e65bb96d386|file|2de3e660caed|0
+checksum: 0835f4454140
 
