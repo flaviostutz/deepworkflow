@@ -42,6 +42,14 @@ result = run_workflow(config)
 print(result.output)
 ```
 
+#### Clone workspace before running
+
+Pass `clone_workspace_dir` to copy the workspace to a new directory before running. Agents will use the clone; the source is untouched. Raises `ValueError` if the target directory already exists.
+
+```python
+result = run_workflow(config, clone_workspace_dir="/tmp/workspace-clone")
+```
+
 ### As a CLI
 
 ```bash
@@ -52,6 +60,18 @@ Add `--loglevel` to control console verbosity:
 
 ```bash
 deepworkflow --config mydeepworkflow.yml --loglevel info
+```
+
+Save the consolidated output to a file (also printed to stdout):
+
+```bash
+deepworkflow --config mydeepworkflow.yml --output-file result.md
+```
+
+Run on a clone of the workspace, leaving the source untouched (fails if the target directory already exists):
+
+```bash
+deepworkflow --config mydeepworkflow.yml --clone-workspace-dir /tmp/workspace-clone
 ```
 
 Example `deepworkflow.yml`:
@@ -174,6 +194,10 @@ Sample INFO output:
   > elapsed: 4s
 > check_verdict [pass]
 > reduce_consolidate_agent
+  > (out) output:
+  > (out) The refactored files now use consistent error handling across all modules.
+  > (out) Summary of changes: ...
+  > (out) 3 files read; 2 files written
   > elapsed: 6s
 Summary:
   result: OK

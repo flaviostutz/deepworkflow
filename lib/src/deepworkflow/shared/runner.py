@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import dataclasses
 import json
+import shutil
 import uuid
+from pathlib import Path
 
 import mlflow
 from langgraph.checkpoint.memory import MemorySaver
@@ -17,11 +20,12 @@ def _console_span_printer(span: object) -> None:
     print(json.dumps(span.to_dict(), indent=2))  # noqa: T201
 
 
-def run_workflow(  # noqa: C901, PLR0912
+def run_workflow(  # noqa: C901, PLR0912, PLR0915
     config: DeepWorkflowConfig | None = None,
     *,
     thread_id: str | None = None,
     checkpoint_dir: str | None = None,
+    clone_workspace_dir: str | None = None,
 ) -> WorkflowResult:
     """Run the deepworkflow graph with optional checkpointing for crash recovery.
 
@@ -31,11 +35,21 @@ def run_workflow(  # noqa: C901, PLR0912
                    the workflow can be resumed from the last checkpoint on crash.
         checkpoint_dir: Path to SQLite checkpoint database directory.
                        If None, uses in-memory checkpointer (no persistence).
+        clone_workspace_dir: If set, copy the workspace to this directory before running.
+                             Agents will use the clone; the source workspace stays untouched.
+                             Fails with ValueError if the directory already exists.
 
     Returns:
         WorkflowResult with thread_id, output, and status.
 
     """
+    if clone_workspace_dir is not None and config is not None:
+        clone_path = Path(clone_workspace_dir)
+        if clone_path.exists():
+            msg = f"clone_workspace_dir already exists: {clone_workspace_dir}"
+            raise ValueError(msg)
+        shutil.copytree(config.workspace_dir, clone_workspace_dir)
+        config = dataclasses.replace(config, workspace_dir=clone_workspace_dir)
     log_level = config.log_level if config is not None else WorkflowLogLevel.NONE
 
     checkpointer = None

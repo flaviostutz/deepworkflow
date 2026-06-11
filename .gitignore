@@ -13,3 +13,4 @@ htmlcov/
 *.db
 .env
 mlruns/
+.workspace/

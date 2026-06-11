@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.adapters.connectors.deepagents_connector import create_agent
-from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
-from deepworkflow.shared.types import WriteOption
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, build_agent_prompt
 
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
@@ -24,15 +24,23 @@ Workflow-level inputs:
 Agent-specific inputs:
 - files_in_scope:
 {batch_files}
-- execute_output: {execute_output}
-- files_read: {files_read}
-- files_written: {files_written}"""
+
+The full execution conversation and all tool call history are available in the messages preceding
+this request. Inspect them to assess what was actually done."""
 
 _GUARDRAILS = """\
 - Do NOT evaluate the overall quality of the result — that is the quality judge's responsibility
   (`evaluate_batch_quality_agent`).
-- Only assess whether this pass made meaningful, non-trivial progress (e.g. files were changed in
-  a useful way, substantial work was done)."""
+- Only assess whether this pass made meaningful, non-trivial progress by inspecting the tool call
+  history in the preceding messages.
+- Consider PROGRESS: NO if any of the following apply:
+  * No files were written, or the files written contain only trivial changes (e.g. whitespace,
+    formatting, or style adjustments with no semantic difference).
+  * The output produced is low-signal for the task — for example, a code-review task that surfaced
+    only INFO-level observations with no new WARNINGs or ERRORs is not meaningful progress.
+  * The volume of new or changed content is negligible relative to the scope of the task.
+- No tools are available for this agent. All reasoning is done in-context by inspecting the prior
+  tool call messages only."""
 
 _OUTPUT_FORMAT = """\
 PROGRESS: YES
@@ -43,42 +51,32 @@ or
 PROGRESS: NO
 REASON: <brief explanation>"""
 
-
 def evaluate_batch_progress_agent(state: file_batch_workflow_state) -> dict:
     """Evaluate whether the latest pass made meaningful progress toward the task goal."""
     config = state["config"]
     batch_index = state["current_batch_index"]
     current_batch = state["task_file_batches"][batch_index]
+    execute_messages = state.get("execute_messages", [])
 
-    prompt = build_agent_prompt(
+    system_prompt = build_agent_prompt(
         objective=_OBJECTIVE,
         role=_ROLE,
         input_section=_INPUT_TEMPLATE.format(
             task_instructions=config.task_instructions,
             batch_files="\n".join(current_batch.batch_files),
-            execute_output=state.get("execute_output", ""),
-            files_read=", ".join(state.get("files_read", [])),
-            files_written=", ".join(state.get("files_written", [])),
         ),
         guardrails=_GUARDRAILS,
-        tool_guidance=TOOL_GUIDANCE_BASE,
         output_format=_OUTPUT_FORMAT,
     )
 
-    agent = create_agent(
-        model=config.model("evaluate_batch_progress_agent"),
-        system_prompt=prompt,
-        workspace_dir=config.workspace_dir,
-        write_option=WriteOption.READ_ONLY,
-    )
-
-    result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
-    last_message = result["messages"][-1]
-    content = last_message.content if hasattr(last_message, "content") else str(last_message)
+    model = config.model("evaluate_batch_progress_agent")
+    messages = [SystemMessage(content=system_prompt), *execute_messages, HumanMessage(content=STANDARD_USER_MESSAGE)]
+    response = model.invoke(messages)
+    content = response.content if hasattr(response, "content") else str(response)
 
     batch_progress = _parse_progress_output(content)
 
-    return {"batch_progress": batch_progress}
+    return {"batch_progress": batch_progress, "batch_progress_output": content}
 
 
 def _parse_progress_output(content: str) -> bool:

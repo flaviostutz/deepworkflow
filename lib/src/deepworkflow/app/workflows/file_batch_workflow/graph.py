@@ -134,14 +134,8 @@ def _log_reflect_batch_post(state: dict, result: dict) -> list[str]:  # noqa: AR
 
 
 # evaluate_batch_progress_agent
-def _log_evaluate_progress_post(state: dict, result: dict) -> list[str]:
-    progress = result.get("batch_progress", False)
-    if progress:
-        repeat_count = state.get("batch_repeat_count", 0) + 1
-        config = state.get("config")
-        max_repeats = config.batch_repeat_max if config is not None else 0
-        return [f"progress: yes. will run again ({repeat_count}/{max_repeats})"]
-    return ["progress: no. stopping."]
+def _log_evaluate_progress_post(state: dict, result: dict) -> list[str]:  # noqa: ARG001
+    return [_truncate(result.get("batch_progress_output", ""), 50)]
 
 
 # evaluate_batch_quality_agent
@@ -156,10 +150,9 @@ def _log_reduce_consolidate_post(state: dict, result: dict) -> list[str]:
     batch_outputs = state.get("batch_outputs") or []
     total_read = sum(len(b.files_read) for b in batch_outputs)
     total_written = sum(len(b.files_written) for b in batch_outputs)
-    return [
-        f"output: {_truncate(output, 50)}",
-        f"{total_read} files read; {total_written} files written",
-    ]
+    lines = ["output:"] + (output.splitlines() if output else [""])
+    lines.append(f"{total_read} files read; {total_written} files written")
+    return lines
 
 
 def build_file_batch_workflow(checkpointer: Any = None) -> Any:

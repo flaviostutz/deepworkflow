@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "file_batch_workflow simple eval record",
+  "title": "file_batch_workflow complex eval record",
   "description": "One evaluation record: a workflow input paired with the expected output keywords.",
   "type": "object",
   "required": ["input", "expected_output"],
@@ -23,8 +23,9 @@
       }
     },
     "expected_output": {
-      "type": "string",
-      "description": "Comma-separated keywords that must appear in the workflow output for the sample to pass."
+      "type": "object",
+      "description": "Map of file stem to semicolon-separated keywords that must appear in the corresponding report file for the sample to pass.",
+      "additionalProperties": { "type": "string" }
     }
   }
 }

@@ -15,7 +15,8 @@ from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, Workfl
 
 mlflow.langchain.autolog()
 
-EVAL_WORKSPACE_DIR = "dataset_simple/workspace"
+EVAL_WORKSPACE_DIR = "dataset_simple/data"
+EVAL_CLONE_DIR = ".workspace/dataset_simple"
 EVAL_EXPECTED_OUTPUT_PATH = Path("dataset_simple/expected_output.jsonl")
 EVAL_MIN_SIMILARITY = 0.5
 
@@ -88,7 +89,7 @@ def run_eval() -> None:
         mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
 
         try:
-            result = run_workflow(CONFIG)
+            result = run_workflow(CONFIG, clone_workspace_dir=EVAL_CLONE_DIR)
             similarity = _keyword_similarity(result.output, expected_output)
             mlflow.log_metric("success", 1)
             mlflow.log_metric("output_length", len(result.output))

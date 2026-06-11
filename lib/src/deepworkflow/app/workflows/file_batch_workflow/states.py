@@ -38,6 +38,7 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     judge_verdict: JudgeVerdict
     judge_feedbacks: list[JudgeFeedback]
     batch_progress: bool
+    batch_progress_output: str
 
     # Accumulated results across batch-repeat passes
     cumulative_files_read: list[str]

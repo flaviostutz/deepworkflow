@@ -112,7 +112,6 @@ On failure (unclear or insufficient instructions):
 _MANDATORY_ADVISORY_KEYWORDS = {"must", "required", "mandatory", "should", "recommended", "could", "may", "suggested"}
 
 
-
 def map_batches_agent(state: file_batch_workflow_state) -> dict:
     """Plan batch definitions using a read-only agent."""
     config = state["config"]

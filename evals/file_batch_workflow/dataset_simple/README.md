@@ -4,11 +4,11 @@ Minimal evaluation dataset for the `file_batch_workflow` — a single-sample rea
 
 ## What this dataset contains
 
-One JSONL record (`expected_output.jsonl`) pairing a task instruction with the expected output keywords. The `workspace/` sub-folder holds the Python source files the workflow is asked to analyse.
+One JSONL record (`expected_output.jsonl`) pairing a task instruction with the expected output keywords. The `data/` sub-folder holds the Python source files the workflow is asked to analyse.
 
 ## Creation procedure
 
-1. A small Python file (`workspace/sample.py`) was written with two known bugs:
+1. A small Python file (`data/sample.py`) was written with two known bugs:
    - A `divide` function with no `ZeroDivisionError` guard.
    - A `greet` function that uses `== None` instead of `is None`.
 2. The workflow was invoked in read-only mode with `task_instructions = "Analyze each file and report any potential bugs or issues."`.

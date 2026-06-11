@@ -53,9 +53,7 @@ def build_context(workspace_dir: str | None = None, max_files: int = 500) -> str
     ]
     if workspace_dir is not None:
         structure = _build_workspace_structure(workspace_dir, max_files=max_files)
-        lines.append(
-            f"I am working in a workspace that has the following structure:\n```\n{structure}\n```"
-        )
+        lines.append(f"I am working in a workspace that has the following structure:\n```\n{structure}\n```")
     return "\n".join(lines)
 
 

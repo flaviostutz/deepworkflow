@@ -48,6 +48,20 @@ def main() -> None:
         default=None,
         help="Console log verbosity (none/trace/info). Overrides log_level in config.",
     )
+    parser.add_argument(
+        "--output-file",
+        default=None,
+        help="Path to write the consolidated workflow output to (also printed to stdout).",
+    )
+    parser.add_argument(
+        "--clone-workspace-dir",
+        default=None,
+        help=(
+            "Copy the workspace to this directory before running. "
+            "Agents will use the clone; the source workspace stays untouched. "
+            "Fails if the directory already exists."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -67,14 +81,23 @@ def main() -> None:
     config = _build_config(raw, model_override=args.model, log_level_override=args.loglevel)
 
     try:
-        result = run_workflow(config, thread_id=args.thread_id, checkpoint_dir=args.checkpoint_dir)
+        result = run_workflow(
+            config,
+            thread_id=args.thread_id,
+            checkpoint_dir=args.checkpoint_dir,
+            clone_workspace_dir=args.clone_workspace_dir,
+        )
         if result.status == "failed":
             print(f"Workflow failed: {result.output}", file=sys.stderr)  # noqa: T201
             sys.exit(1)
         print(result.output)  # noqa: T201
+        if args.output_file:
+            output_path = Path(args.output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(result.output)
         if args.thread_id or args.checkpoint_dir:
             print(f"Thread ID: {result.thread_id}", file=sys.stderr)  # noqa: T201
-    except RuntimeError as e:
+    except (RuntimeError, ValueError) as e:
         print(f"Workflow failed: {e}", file=sys.stderr)  # noqa: T201
         sys.exit(1)
 
