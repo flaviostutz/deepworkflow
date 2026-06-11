@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from deepworkflow.adapters.connectors.deepagents_connector import create_agent
-from deepworkflow.shared.prompts import workflow_role
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
 from deepworkflow.shared.types import BatchDefinition, WriteOption
 
 DEFAULT_JUDGE_BATCH_INSTRUCTIONS = (
@@ -35,18 +35,16 @@ If no specific quality criteria can be extracted, return an empty string."""
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-MAP_BATCHES_PROMPT = """<OBJECTIVE>
-Analyze the task and list of files, then split the work into logical, non-overlapping batches \
-for parallel processing. Return a structured error response when task instructions are insufficient.
-</OBJECTIVE>
+_OBJECTIVE = """\
+Analyze the task and list of files, then split the work into logical, non-overlapping batches
+for parallel processing. Return a structured error response when task instructions are insufficient."""
 
-<ROLE>
-You are the `map_batches_agent` (see WORKFLOW_CONTEXT). You are an expert at partitioning large \
-file sets into balanced, directory-aware batches that minimise write conflicts and allow each batch \
-to converge independently to a consistent result.
-</ROLE>
+_ROLE = """\
+You are the `map_batches_agent`. You are an expert at partitioning large file sets into balanced,
+directory-aware batches that minimise write conflicts and allow each batch to converge independently
+to a consistent result."""
 
-<INPUT>
+_INPUT_TEMPLATE = """\
 Workflow-level inputs:
 - task_instructions: {task_instructions}
 
@@ -59,10 +57,9 @@ Agent-specific inputs:
 Quality language convention (used throughout this workflow):
 - MUST / REQUIRED / MANDATORY → failure to comply is an ERROR
 - SHOULD / RECOMMENDED → failure to comply is a WARNING
-- COULD / MAY / SUGGESTED → failure to comply is an INFO
-</INPUT>
+- COULD / MAY / SUGGESTED → failure to comply is an INFO"""
 
-<STEPS>
+_STEPS_TEMPLATE = """\
 1. Validate task_instructions before proceeding:
    - Are they sufficient to define a batching strategy?
    - Do they define expected quality standards using MUST/SHOULD/COULD language? If quality criteria
@@ -76,10 +73,9 @@ Quality language convention (used throughout this workflow):
 5. Produce `consolidation_instructions` — how to merge/consolidate results from all batches at the end.
 6. For each batch, produce `batch_instructions` — why those files are grouped together AND specific
    instructions the execute agent must follow when processing this batch. Use MUST/SHOULD/COULD
-   language to express quality requirements specific to this batch.
-</STEPS>
+   language to express quality requirements specific to this batch."""
 
-<GUARDRAILS>
+_GUARDRAILS = """\
 - Every file selected for processing MUST appear in exactly one batch (no file lost, no file
   duplicated). No file may be omitted or assigned to more than one batch.
 - All files in `batch_files` MUST be existing files in the workspace. Do not invent paths or
@@ -94,10 +90,9 @@ Quality language convention (used throughout this workflow):
 - Minimise write concurrency: group files that are likely to be written together into the same
   batch to avoid multiple batches modifying the same files simultaneously.
 - If batch size constraint is "all in one batch", put ALL files in a single batch.
-- Do NOT perform the actual task — only plan the batching strategy.
-</GUARDRAILS>
+- Do NOT perform the actual task — only plan the batching strategy."""
 
-<OUTPUT_FORMAT>
+_OUTPUT_FORMAT = """\
 On success:
 {{
   "task_overview": "Overall strategy and context for all batches...",
@@ -112,15 +107,10 @@ On failure (unclear or insufficient instructions):
 {{
   "error": true,
   "message": "The task instructions are insufficient because... To improve, consider..."
-}}
-</OUTPUT_FORMAT>
-
-<WORKFLOW_CONTEXT>
-{workflow_context}
-</WORKFLOW_CONTEXT>"""
-
+}}"""
 
 _MANDATORY_ADVISORY_KEYWORDS = {"must", "required", "mandatory", "should", "recommended", "could", "may", "suggested"}
+
 
 
 def map_batches_agent(state: file_batch_workflow_state) -> dict:
@@ -176,13 +166,19 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
             "then group them into logical batches (respecting the batch size constraint)."
         )
 
-    prompt = MAP_BATCHES_PROMPT.format(
-        workflow_context=workflow_role("map_batches_agent", "Plan how to split files into batches for processing"),
-        task_instructions=config.task_instructions,
-        files_section=files_section,
-        discover_or_group=discover_or_group,
-        batch_size_constraint=batch_size_constraint,
-        judge_feedback_section=judge_feedback_section,
+    prompt = build_agent_prompt(
+        objective=_OBJECTIVE,
+        role=_ROLE,
+        input_section=_INPUT_TEMPLATE.format(
+            task_instructions=config.task_instructions,
+            files_section=files_section,
+            batch_size_constraint=batch_size_constraint,
+            judge_feedback_section=judge_feedback_section,
+        ),
+        steps=_STEPS_TEMPLATE.format(discover_or_group=discover_or_group),
+        guardrails=_GUARDRAILS,
+        tool_guidance=TOOL_GUIDANCE_BASE,
+        output_format=_OUTPUT_FORMAT,
     )
 
     agent = create_agent(
@@ -192,7 +188,7 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
         write_option=WriteOption.READ_ONLY,
     )
 
-    result = agent.invoke({"messages": "Analyze the workspace and plan the batch strategy."})
+    result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
     content = last_message.content if hasattr(last_message, "content") else str(last_message)
 

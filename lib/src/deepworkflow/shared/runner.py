@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 
 import mlflow
@@ -7,10 +8,16 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from deepworkflow.app.workflows.file_batch_workflow.graph import build_file_batch_workflow
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import WorkflowResult
+from deepworkflow.shared.types import WorkflowLogLevel, WorkflowResult
+from deepworkflow.shared.workflow_log import WorkflowStatsCallback, new_run_stats, print_summary
 
 
-def run_workflow(
+def _console_span_printer(span: object) -> None:
+    """Print a completed MLflow span to stdout as JSON."""
+    print(json.dumps(span.to_dict(), indent=2))  # noqa: T201
+
+
+def run_workflow(  # noqa: C901, PLR0912
     config: DeepWorkflowConfig | None = None,
     *,
     thread_id: str | None = None,
@@ -29,10 +36,16 @@ def run_workflow(
         WorkflowResult with thread_id, output, and status.
 
     """
+    log_level = config.log_level if config is not None else WorkflowLogLevel.NONE
+
     checkpointer = None
     tracking_uri = config.mlflow_tracking_uri if config is not None else "sqlite:///mlflow.db"
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.langchain.autolog()
+
+    if log_level == WorkflowLogLevel.TRACE:
+        mlflow.tracing.configure(span_processors=[_console_span_printer])
+
     if checkpoint_dir:
         try:
             import sqlite3
@@ -51,13 +64,23 @@ def run_workflow(
     resolved_thread_id = thread_id or str(uuid.uuid4())
     graph = build_file_batch_workflow(checkpointer=checkpointer)
 
-    invoke_config = {"configurable": {"thread_id": resolved_thread_id}}
+    invoke_config: dict = {"configurable": {"thread_id": resolved_thread_id}}
 
-    with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}"):
+    # Set up stats + callback for INFO / TRACE levels
+    stats = None
+    if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.TRACE):
+        stats = new_run_stats()
+        invoke_config["callbacks"] = [WorkflowStatsCallback(log_level)]
+
+    nested = mlflow.active_run() is not None
+    with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}", nested=nested):
         if config is not None:
             mlflow.log_param("judge_min", config.judge_min.name)
             mlflow.log_param("judge_max_retries", config.judge_max_retries)
             mlflow.log_param("write_option", config.workspace_write_option.value)
+
+        if log_level != WorkflowLogLevel.NONE:
+            print("START")  # noqa: T201
 
         # If config provided, start/restart with initial state
         if config is not None:
@@ -69,16 +92,24 @@ def run_workflow(
 
         if result.get("error"):
             mlflow.log_metric("success", 0)
-            return WorkflowResult(
+            workflow_result = WorkflowResult(
                 thread_id=resolved_thread_id,
                 output=result.get("error", ""),
                 status="failed",
             )
+        else:
+            mlflow.log_metric("success", 1)
+            mlflow.log_metric("output_length", len(result.get("workflow_output", "")))
+            workflow_result = WorkflowResult(
+                thread_id=resolved_thread_id,
+                output=result.get("workflow_output", ""),
+                status="completed",
+            )
 
-        mlflow.log_metric("success", 1)
-        mlflow.log_metric("output_length", len(result.get("workflow_output", "")))
-        return WorkflowResult(
-            thread_id=resolved_thread_id,
-            output=result.get("workflow_output", ""),
-            status="completed",
-        )
+        if log_level != WorkflowLogLevel.NONE:
+            print("END")  # noqa: T201
+
+        if stats is not None and log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.TRACE):
+            print_summary(stats, result, workflow_result)
+
+        return workflow_result

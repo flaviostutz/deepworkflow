@@ -11,7 +11,7 @@ import keyring
 import mlflow
 
 from deepworkflow import DeepWorkflowConfig, run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 mlflow.langchain.autolog()
 
@@ -57,6 +57,7 @@ CONFIG = DeepWorkflowConfig(
     judge_min=JudgeVerdict.WARNING,
     judge_max_retries=1,
     judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    log_level=WorkflowLogLevel.INFO,
 )
 
 

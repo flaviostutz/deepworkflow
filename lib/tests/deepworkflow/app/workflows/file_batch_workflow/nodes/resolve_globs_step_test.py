@@ -66,7 +66,9 @@ class TestResolveGlobs:
             Path(td, "bar.py").touch()
             Path(td, "baz.txt").touch()
             result = resolve_globs_step({"config": _make_config(td, ["*.py"])})
-            assert sorted(result["task_files"]) == sorted([str(Path(td, "bar.py")), str(Path(td, "foo.py"))])
+            # Paths are returned relative to workspace_dir so downstream nodes
+            # can safely prepend workspace_dir without creating a double-prefix.
+            assert sorted(result["task_files"]) == ["bar.py", "foo.py"]
 
     def test_empty_result_returns_error(self):
         with tempfile.TemporaryDirectory() as td:

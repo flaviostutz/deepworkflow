@@ -24,7 +24,8 @@ class TestDeepWorkflowConfig:
         assert config.max_failure_retries == 0
         assert config.judge_min == JudgeVerdict.WARNING
         assert config.judge_skip is False
-        assert config.model is _mock_model
+        assert callable(config.model)
+        assert config.model("any_agent") is None  # _mock_model returns None
 
     def test_full_config(self):
         config = DeepWorkflowConfig(

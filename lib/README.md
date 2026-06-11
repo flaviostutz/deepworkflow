@@ -34,6 +34,7 @@ config = DeepWorkflowConfig(
     judge_min=JudgeVerdict.WARNING,
     judge_max_retries=2,
     judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    log_level=WorkflowLogLevel.INFO,   # optional: NONE (default in lib), INFO, TRACE
     # task_files=["src/**/*.py"],  # Omit to let the agent discover files
 )
 
@@ -45,6 +46,12 @@ print(result.output)
 
 ```bash
 deepworkflow --config mydeepworkflow.yml
+```
+
+Add `--loglevel` to control console verbosity:
+
+```bash
+deepworkflow --config mydeepworkflow.yml --loglevel info
 ```
 
 Example `deepworkflow.yml`:
@@ -59,6 +66,7 @@ workspace_write_option: read-only
 judge_min: WARNING
 judge_max_retries: 2
 judge_on_max_retries: continue
+log_level: info   # optional: info (default in CLI), trace, none
 ```
 
 ## Model Factory
@@ -120,3 +128,68 @@ If the task involves **creating or modifying output files**, the map plan must d
 - **Batch-specific outputs** (each batch is responsible for its own set) → list them in that batch's `batch_instructions`
 
 The judge (`evaluate_map_batches_agent`) verifies that output files are declared and flags plans that leave batches without a clear list of files they are responsible for.
+
+## Workflow Logging (`log_level`)
+
+The `log_level` setting controls console verbosity during a run.
+
+| Level | Output |
+|-------|--------|
+| `none` | No console output (default in lib) |
+| `trace` | Every MLflow span as JSON (raw tracing) |
+| `info` | Agent/route headers, in/out summaries, elapsed time, and a summary block (default in CLI) |
+
+```python
+from deepworkflow.shared.types import WorkflowLogLevel
+
+config = DeepWorkflowConfig(
+    ...
+    log_level=WorkflowLogLevel.INFO,
+)
+```
+
+YAML equivalent:
+
+```yaml
+log_level: info
+```
+
+CLI flag (overrides YAML):
+
+```bash
+deepworkflow --config deepworkflow.yml --loglevel info
+```
+
+Sample INFO output:
+```
+> map_batches_agent
+  > elapsed: 5s
+> check_map_verdict [pass]
+> plan_batch_agent
+  > elapsed: 3s
+> execute_batch_agent
+  > (out) 2 files written
+  > elapsed: 12s
+> reflect_batch_agent
+  > elapsed: 4s
+> check_verdict [pass]
+> reduce_consolidate_agent
+  > elapsed: 6s
+Summary:
+  result: OK
+  quality judge: OK
+  total time: 42s
+  total quality retries: 0
+  total progress retries: 0
+  total files read: 3
+  total files written: 0
+  model invocations: 6
+  models total: 12k/2k tokens (~US$ 0.00)
+  model gpt-4o: 12k/2k tokens
+```
+
+For TRACE level, each span can be piped into `jq`:
+
+```bash
+deepworkflow --config deepworkflow.yml --loglevel trace | jq 'select(.name == "execute_batch_agent")'
+```

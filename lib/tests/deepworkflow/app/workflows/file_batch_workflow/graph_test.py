@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from deepworkflow.app.workflows.file_batch_workflow.graph import _feedback_summary, _truncate
 from deepworkflow.app.workflows.file_batch_workflow.nodes.fail_step import fail_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.increment_retry_step import increment_retry_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.map_increment_retry_step import map_increment_retry_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.record_output_step import record_output_step
-from deepworkflow.shared.types import BatchDefinition, JudgeVerdict
+from deepworkflow.shared.types import BatchDefinition, JudgeFeedback, JudgeVerdict
 
 
 class TestRecordBatchOutput:
@@ -82,3 +83,56 @@ class TestMapIncrementRetry:
 class TestFail:
     def test_returns_error(self):
         assert fail_step({}) == {"error": "Workflow failed"}
+
+
+class TestTruncate:
+    def test_short_text_unchanged(self):
+        assert _truncate("hello world", 30) == "hello world"
+
+    def test_exact_word_count_unchanged(self):
+        words = " ".join(["w"] * 5)
+        assert _truncate(words, 5) == words
+
+    def test_long_text_truncated(self):
+        words = " ".join(["w"] * 10)
+        result = _truncate(words, 3)
+        assert result == "w w w\u2026"
+
+    def test_empty_string(self):
+        assert _truncate("", 5) == ""
+
+
+class TestFeedbackSummary:
+    def test_no_feedbacks_returns_ok(self):
+        assert _feedback_summary([]) == "OK"
+
+    def test_counts_error_only(self):
+        fb = JudgeFeedback(file="f", type=JudgeVerdict.ERROR, description="d")
+        assert _feedback_summary([fb]) == "1 error"
+
+    def test_counts_warning_only(self):
+        fb = JudgeFeedback(file="f", type=JudgeVerdict.WARNING, description="d")
+        assert _feedback_summary([fb]) == "1 warning"
+
+    def test_counts_info_only(self):
+        fb = JudgeFeedback(file="f", type=JudgeVerdict.INFO, description="d")
+        assert _feedback_summary([fb]) == "1 info"
+
+    def test_mixed_counts(self):
+        feedbacks = [
+            JudgeFeedback(file="f", type=JudgeVerdict.ERROR, description="d"),
+            JudgeFeedback(file="f", type=JudgeVerdict.WARNING, description="d"),
+            JudgeFeedback(file="f", type=JudgeVerdict.WARNING, description="d"),
+            JudgeFeedback(file="f", type=JudgeVerdict.INFO, description="d"),
+        ]
+        assert _feedback_summary(feedbacks) == "1 error; 2 warning; 1 info"
+
+    def test_ok_feedbacks_not_counted(self):
+        fb = JudgeFeedback(file="f", type=JudgeVerdict.OK, description="d")
+        assert _feedback_summary([fb]) == "OK"
+
+    def test_zero_counts_omitted(self):
+        fb = JudgeFeedback(file="f", type=JudgeVerdict.ERROR, description="d")
+        result = _feedback_summary([fb])
+        assert "warning" not in result
+        assert "info" not in result

@@ -20,6 +20,7 @@ judge_max_retries: 1
 judge_on_max_retries: "continue"
 judge_min: "WARNING"
 judge_skip: false
+log_level: info
 
 # Omit task_files to let the map agent discover relevant files automatically
 # task_files:

@@ -49,10 +49,15 @@ def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
 
 
 def check_map_retries(state: dict) -> Literal["map_batches_agent", "fail_step"]:
-    """Route: retry map if retries remaining, otherwise fail."""
+    """Route: retry map if retries remaining, otherwise fail.
+
+    ``judge_max_retries=N`` allows N retries after the first attempt.
+    The increment step runs before this check, so exhaustion occurs when
+    ``map_retry_count > judge_max_retries``.
+    """
     config = state["config"]
     retry_count = state.get("map_retry_count", 0)
-    if retry_count < config.judge_max_retries:
+    if retry_count <= config.judge_max_retries:
         return "map_batches_agent"
     return "fail_step"
 
@@ -67,10 +72,15 @@ def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
 
 
 def check_retries(state: dict) -> Literal["plan_batch_agent", "max_retries_exceeded"]:
-    """Route: retry plan if retries remaining, otherwise handle max retries."""
+    """Route: retry plan if retries remaining, otherwise handle max retries.
+
+    ``judge_max_retries=N`` allows N retries after the first attempt.
+    The increment step runs before this check, so exhaustion occurs when
+    ``retry_count > judge_max_retries``.
+    """
     config = state["config"]
     retry_count = state.get("retry_count", 0)
-    if retry_count < config.judge_max_retries:
+    if retry_count <= config.judge_max_retries:
         return "plan_batch_agent"
     return "max_retries_exceeded"
 

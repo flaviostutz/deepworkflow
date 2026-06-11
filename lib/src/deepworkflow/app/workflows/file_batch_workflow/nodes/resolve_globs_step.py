@@ -67,8 +67,9 @@ def resolve_globs_step(state: file_batch_workflow_state) -> dict:
 
     for entry in raw_files:
         if _is_glob_pattern(entry):
-            # Expand glob relative to workspace_dir
-            matches = sorted(str(p) for p in workspace_dir.glob(entry))
+            # Expand glob relative to workspace_dir; keep paths relative to workspace_dir
+            # so downstream nodes can safely prepend workspace_dir without double-prefixing.
+            matches = sorted(str(p.relative_to(workspace_dir)) for p in workspace_dir.glob(entry))
             for match in matches:
                 if match not in seen:
                     seen.add(match)

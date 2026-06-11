@@ -3,22 +3,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from deepworkflow.adapters.connectors.deepagents_connector import create_agent
-from deepworkflow.shared.prompts import workflow_role
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
 
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-EXECUTE_PROMPT = """<OBJECTIVE>
-Execute the provided plan on the current batch of files and produce a summary of what was done.
-</OBJECTIVE>
+_OBJECTIVE = """\
+Execute the provided plan on the current batch of files and produce a summary of what was done."""
 
-<ROLE>
-You are the `execute_batch_agent` (see WORKFLOW_CONTEXT). You are an expert at carrying out a \
-well-defined plan precisely, reading and modifying files according to the task instructions and \
-write option.
-</ROLE>
+_ROLE = """\
+You are the `execute_batch_agent`. You are an expert at carrying out a well-defined plan precisely,
+reading and modifying files according to the task instructions and write option."""
 
-<INPUT>
+_INPUT_TEMPLATE = """\
 Workflow-level inputs:
 - task_instructions: {task_instructions}
 - task_overview: {task_overview}
@@ -30,24 +27,17 @@ Agent-specific inputs:
 - write_option: {write_option}
 - plan_to_follow:
 {plan_output}
-{judge_feedback_section}
-</INPUT>
+{judge_feedback_section}"""
 
-<GUARDRAILS>
+_GUARDRAILS = """\
 - If write_option is 'read-only', produce analysis or report output only — do NOT write or modify
   any files.
 - If write_option allows writing, make the necessary file changes as described in the plan.
-- Address all judge feedback from the previous attempt when present.
-</GUARDRAILS>
+- Address all judge feedback from the previous attempt when present."""
 
-<OUTPUT_FORMAT>
+_OUTPUT_FORMAT = """\
 A prose summary describing what was done: which files were read or modified, what changes were made,
-and any notable observations or issues encountered.
-</OUTPUT_FORMAT>
-
-<WORKFLOW_CONTEXT>
-{workflow_context}
-</WORKFLOW_CONTEXT>"""
+and any notable observations or issues encountered."""
 
 
 def execute_batch_agent(state: file_batch_workflow_state) -> dict:
@@ -73,15 +63,21 @@ def execute_batch_agent(state: file_batch_workflow_state) -> dict:
             "You do not need to follow them exactly if you find a better way to fix the issue."
         )
 
-    prompt = EXECUTE_PROMPT.format(
-        workflow_context=workflow_role("execute_batch_agent", "Execute the planned task on the current batch of files"),
-        task_instructions=config.task_instructions,
-        task_overview=task_overview,
-        batch_instructions=batch_instructions,
-        batch_files="\n".join(current_batch.batch_files),
-        write_option=config.workspace_write_option.value,
-        plan_output=plan_output,
-        judge_feedback_section=judge_feedback_section,
+    prompt = build_agent_prompt(
+        objective=_OBJECTIVE,
+        role=_ROLE,
+        input_section=_INPUT_TEMPLATE.format(
+            task_instructions=config.task_instructions,
+            task_overview=task_overview,
+            batch_instructions=batch_instructions,
+            batch_files="\n".join(current_batch.batch_files),
+            write_option=config.workspace_write_option.value,
+            plan_output=plan_output,
+            judge_feedback_section=judge_feedback_section,
+        ),
+        guardrails=_GUARDRAILS,
+        tool_guidance=TOOL_GUIDANCE_BASE,
+        output_format=_OUTPUT_FORMAT,
     )
 
     agent = create_agent(
@@ -91,7 +87,7 @@ def execute_batch_agent(state: file_batch_workflow_state) -> dict:
         write_option=config.workspace_write_option,
     )
 
-    result = agent.invoke({"messages": "Execute the plan now."})
+    result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
     execute_output = last_message.content if hasattr(last_message, "content") else str(last_message)
 

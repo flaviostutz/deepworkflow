@@ -1,14 +1,39 @@
 from __future__ import annotations
 
+import uuid as _uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from langchain_core.language_models import BaseChatModel
+
+# Module-level registry mapping config_id → model factory callable.
+# Keeps the non-serializable Callable out of the LangGraph checkpoint state.
+_model_registry: dict[str, Callable] = {}
+
+
+@dataclass(frozen=True)
+class _ModelRef:
+    """Serializable proxy for a model factory callable.
+
+    Stores only a UUID key into ``_model_registry`` so LangGraph can checkpoint
+    this object without ever touching the underlying non-serializable Callable.
+    The actual factory is recovered from the registry on each ``__call__``.
+    """
+
+    _config_id: str
+
+    def __call__(self, agent_name: str) -> BaseChatModel:
+        factory = _model_registry.get(self._config_id)
+        if factory is None:
+            raise RuntimeError(
+                f"No model factory found for config_id={self._config_id!r}. "
+                "The factory may have been lost if the process restarted."
+            )
+        return factory(agent_name)
 
 
 @dataclass(frozen=True)
@@ -28,6 +53,9 @@ class DeepWorkflowConfig:
     name of the agent being created (e.g. ``"execute_batch_agent"``).  The agent name
     can be used to return different models or configurations for different parts of the
     workflow.
+
+    Pass any callable; it is wrapped internally in a serialization-safe proxy so
+    that LangGraph can checkpoint the workflow state without errors.
 
     Example using a single model for all agents::
 
@@ -109,3 +137,23 @@ class DeepWorkflowConfig:
     """MLflow tracking URI used to store experiment runs.  Defaults to a local
     SQLite database (``mlflow.db``).  Set to a remote URI such as
     ``http://my-mlflow-server:5000`` to use a remote tracking server."""
+
+    log_level: WorkflowLogLevel = field(default=WorkflowLogLevel.NONE)
+    """Console log verbosity for the workflow run.  One of ``NONE`` (default), ``TRACE``,
+    or ``INFO``.
+
+    - ``NONE`` — no console output.
+    - ``TRACE`` — every MLflow span printed as JSON (raw tracing).
+    - ``INFO`` — agent/route headers, in/out summaries, elapsed time, and a summary block.
+    """
+
+    def __post_init__(self) -> None:
+        # Wrap raw callables in a _ModelRef so the frozen-dataclass field stores
+        # a serialization-safe proxy rather than a bare Callable.  _ModelRef is
+        # itself a frozen dataclass (string-only fields) that LangGraph can
+        # checkpoint without issues.  Re-wrapping is skipped when the value is
+        # already a _ModelRef (e.g. after LangGraph deserialises the checkpoint).
+        if not isinstance(self.model, _ModelRef):
+            config_id = str(_uuid.uuid4())
+            _model_registry[config_id] = self.model
+            object.__setattr__(self, "model", _ModelRef(config_id))

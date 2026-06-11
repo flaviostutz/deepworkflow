@@ -3,41 +3,32 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from deepworkflow.adapters.connectors.deepagents_connector import create_agent
-from deepworkflow.shared.prompts import workflow_role
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
 
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-CONSOLIDATE_PROMPT = """<OBJECTIVE>
-Review all batch execution results and the workspace state to produce a final, consolidated output.
-</OBJECTIVE>
+_OBJECTIVE = """\
+Review all batch execution results and the workspace state to produce a final, consolidated output."""
 
-<ROLE>
-You are the `reduce_consolidate_agent` (see WORKFLOW_CONTEXT). You are an expert synthesiser who \
-combines the individual batch results into a coherent, holistic final output following the \
-consolidation instructions.
-</ROLE>
+_ROLE = """\
+You are the `reduce_consolidate_agent`. You are an expert synthesiser who combines the individual
+batch results into a coherent, holistic final output following the consolidation instructions."""
 
-<INPUT>
+_INPUT_TEMPLATE = """\
 Agent-specific inputs:
 - consolidation_instructions: {consolidation_instructions}
 - batch_outputs_summary:
-{batch_outputs_summary}
-</INPUT>
+{batch_outputs_summary}"""
 
-<TOOL_GUIDANCE>
+_TOOL_GUIDANCE = f"""{TOOL_GUIDANCE_BASE}
+
 Review the workspace to inspect the combined result of all batches before producing the final
-output. Use file reading tools to verify the actual state of the workspace.
-</TOOL_GUIDANCE>
+output. Use file reading tools to verify the actual state of the workspace."""
 
-<OUTPUT_FORMAT>
+_OUTPUT_FORMAT = """\
 A holistic evaluation and final consolidated output following the consolidation_instructions.
-The output should synthesise all batch results into a coherent whole.
-</OUTPUT_FORMAT>
-
-<WORKFLOW_CONTEXT>
-{workflow_context}
-</WORKFLOW_CONTEXT>"""
+The output should synthesise all batch results into a coherent whole."""
 
 
 def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
@@ -55,12 +46,15 @@ def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
             f"Execute output: {output.execute_output[:500]}\n"
         )
 
-    prompt = CONSOLIDATE_PROMPT.format(
-        workflow_context=workflow_role(
-            "reduce_consolidate_agent", "Consolidate all batch results into the final workflow output"
+    prompt = build_agent_prompt(
+        objective=_OBJECTIVE,
+        role=_ROLE,
+        input_section=_INPUT_TEMPLATE.format(
+            consolidation_instructions=consolidation_instructions,
+            batch_outputs_summary="\n".join(outputs_summary),
         ),
-        consolidation_instructions=consolidation_instructions,
-        batch_outputs_summary="\n".join(outputs_summary),
+        tool_guidance=_TOOL_GUIDANCE,
+        output_format=_OUTPUT_FORMAT,
     )
 
     agent = create_agent(
@@ -70,7 +64,7 @@ def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
         write_option=config.workspace_write_option,
     )
 
-    result = agent.invoke({"messages": "Review the workspace and produce the final consolidated output."})
+    result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
     workflow_output = last_message.content if hasattr(last_message, "content") else str(last_message)
 

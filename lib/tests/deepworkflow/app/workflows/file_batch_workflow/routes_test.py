@@ -58,7 +58,7 @@ class TestCheckMapRetries:
 
     def test_fail_when_exhausted(self):
         config = _make_config(judge_max_retries=2)
-        state = {"config": config, "map_retry_count": 2}
+        state = {"config": config, "map_retry_count": 3}
         assert check_map_retries(state) == "fail_step"
 
 
@@ -87,7 +87,7 @@ class TestCheckRetries:
 
     def test_max_retries_when_exhausted(self):
         config = _make_config(judge_max_retries=2)
-        state = {"config": config, "retry_count": 2}
+        state = {"config": config, "retry_count": 3}
         assert check_retries(state) == "max_retries_exceeded"
 
     def test_retry_when_zero_retries_used(self):

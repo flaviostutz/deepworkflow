@@ -10,7 +10,7 @@ import yaml
 
 from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.runner import run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,6 +42,12 @@ def main() -> None:
     )
     parser.add_argument("--thread-id", help="Thread ID for checkpoint resume")
     parser.add_argument("--checkpoint-dir", help="Directory for SQLite checkpoint database")
+    parser.add_argument(
+        "--loglevel",
+        choices=["none", "trace", "info"],
+        default=None,
+        help="Console log verbosity (none/trace/info). Overrides log_level in config.",
+    )
 
     args = parser.parse_args()
 
@@ -58,7 +64,7 @@ def main() -> None:
     content = os.path.expandvars(content)
     raw = yaml.safe_load(content)
 
-    config = _build_config(raw, model_override=args.model)
+    config = _build_config(raw, model_override=args.model, log_level_override=args.loglevel)
 
     try:
         result = run_workflow(config, thread_id=args.thread_id, checkpoint_dir=args.checkpoint_dir)
@@ -73,12 +79,21 @@ def main() -> None:
         sys.exit(1)
 
 
-def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkflowConfig:
+def _build_config(
+    raw: dict,
+    *,
+    model_override: str | None = None,
+    log_level_override: str | None = None,
+) -> DeepWorkflowConfig:
     """Build DeepWorkflowConfig from raw YAML dict."""
     model_factory = _make_model_factory(raw, model_override=model_override)
 
     judge_min_raw = raw.get("judge_min", "WARNING")
     task_files_raw = raw.get("task_files")
+
+    # CLI flag overrides YAML value; YAML defaults to "info"
+    raw_log_level = log_level_override or raw.get("log_level", "info")
+    log_level = WorkflowLogLevel(raw_log_level.lower())
 
     return DeepWorkflowConfig(
         workspace_dir=raw["workspace_dir"],
@@ -94,6 +109,7 @@ def _build_config(raw: dict, *, model_override: str | None = None) -> DeepWorkfl
         max_failure_retries=raw.get("max_failure_retries", 0),
         judge_skip=raw.get("judge_skip", False),
         mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "sqlite:///mlflow.db"),
+        log_level=log_level,
     )
 
 

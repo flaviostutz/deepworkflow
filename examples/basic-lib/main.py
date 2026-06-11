@@ -9,7 +9,7 @@ import keyring
 from langchain_openai import AzureChatOpenAI
 
 from deepworkflow import DeepWorkflowConfig, run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 _KEYCHAIN_SERVICE = "azure-openai/dev-api-key"
 
@@ -57,6 +57,7 @@ def main() -> None:
         judge_min=JudgeVerdict.WARNING,
         judge_max_retries=1,
         judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        log_level=WorkflowLogLevel.INFO,
         # task_files=["src/**/*.py"],  # Optional: omit to let the agent discover files
     )
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from deepworkflow.adapters.connectors.deepagents_connector import create_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
-from deepworkflow.shared.prompts import workflow_role
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
 from deepworkflow.shared.types import BatchDefinition, JudgeFeedback, JudgeVerdict, WriteOption
 
 if TYPE_CHECKING:
@@ -127,16 +127,14 @@ def _algorithmic_map_checks(  # noqa: C901, PLR0912
     return feedbacks
 
 
-EVALUATE_MAP_PROMPT = """<OBJECTIVE>
-Judge the quality of the batch planning step and return structured feedback with a verdict.
-</OBJECTIVE>
+_EVAL_MAP_OBJECTIVE = """\
+Judge the quality of the batch planning step and return structured feedback with a verdict."""
 
-<ROLE>
-You are the `evaluate_map_batches_agent` (see WORKFLOW_CONTEXT). You are an expert judge evaluating \
-whether a batch plan is coherent, well-scoped, and ready for parallel execution.
-</ROLE>
+_EVAL_MAP_ROLE = """\
+You are the `evaluate_map_batches_agent`. You are an expert judge evaluating whether a batch plan
+is coherent, well-scoped, and ready for parallel execution."""
 
-<INPUT>
+_EVAL_MAP_INPUT_TEMPLATE = """\
 Workflow-level inputs:
 - task_instructions: {task_instructions}
 
@@ -157,10 +155,9 @@ Quality language convention: when evaluating criteria derived from task_instruct
 instructions, map the severity based on the language used:
 - MUST / REQUIRED / MANDATORY → non-compliance is an ERROR
 - SHOULD / RECOMMENDED → non-compliance is a WARNING
-- COULD / MAY / SUGGESTED → non-compliance is an INFO
-</INPUT>
+- COULD / MAY / SUGGESTED → non-compliance is an INFO"""
 
-<STEPS>
+_EVAL_MAP_STEPS = """\
 Evaluate the batch plan against these criteria:
 1. **Batch size**: Each batch respects the batch size constraint.
 2. **Logical grouping**: Files are grouped in a way that makes sense for the task.
@@ -175,10 +172,9 @@ Evaluate the batch plan against these criteria:
    output file list is declared either in task_overview (for shared outputs) or in the relevant
    batch_instructions (for batch-specific outputs).
 7. **Write concurrency**: The batch grouping minimises the risk of multiple batches writing to the
-   same files concurrently.
-</STEPS>
+   same files concurrently."""
 
-<OUTPUT_FORMAT>
+_EVAL_MAP_OUTPUT_FORMAT = """\
 {{
   "judge_feedbacks": [
     {{
@@ -191,12 +187,7 @@ Evaluate the batch plan against these criteria:
   "judge_verdict": "OK|INFO|WARNING|ERROR"
 }}
 
-The verdict MUST be the worst (lowest) type across all feedbacks.
-</OUTPUT_FORMAT>
-
-<WORKFLOW_CONTEXT>
-{workflow_context}
-</WORKFLOW_CONTEXT>"""
+The verdict MUST be the worst (lowest) type across all feedbacks."""
 
 
 def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
@@ -229,16 +220,22 @@ def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
         for i, b in enumerate(batches)
     )
 
-    prompt = EVALUATE_MAP_PROMPT.format(
-        workflow_context=workflow_role("evaluate_map_batches_agent", "Judge the quality of the batch planning step"),
-        task_instructions=config.task_instructions,
-        task_files="\n".join(task_files),
-        file_count=len(task_files),
-        batch_size_constraint=batch_size_constraint,
-        task_overview=task_overview,
-        consolidation_instructions=consolidation_instructions,
-        batch_count=len(batches),
-        batches_summary=batches_summary,
+    prompt = build_agent_prompt(
+        objective=_EVAL_MAP_OBJECTIVE,
+        role=_EVAL_MAP_ROLE,
+        input_section=_EVAL_MAP_INPUT_TEMPLATE.format(
+            task_instructions=config.task_instructions,
+            task_files="\n".join(task_files),
+            file_count=len(task_files),
+            batch_size_constraint=batch_size_constraint,
+            task_overview=task_overview,
+            consolidation_instructions=consolidation_instructions,
+            batch_count=len(batches),
+            batches_summary=batches_summary,
+        ),
+        steps=_EVAL_MAP_STEPS,
+        tool_guidance=TOOL_GUIDANCE_BASE,
+        output_format=_EVAL_MAP_OUTPUT_FORMAT,
     )
 
     agent = create_agent(
@@ -248,7 +245,7 @@ def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
         write_option=WriteOption.READ_ONLY,
     )
 
-    result = agent.invoke({"messages": "Evaluate the batch plan."})
+    result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
     content = last_message.content if hasattr(last_message, "content") else str(last_message)
 

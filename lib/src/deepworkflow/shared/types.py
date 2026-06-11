@@ -28,6 +28,19 @@ class OnMaxRetriesExceeded(StrEnum):
     CONTINUE = "continue"
 
 
+class WorkflowLogLevel(StrEnum):
+    """Console log verbosity for the workflow run."""
+
+    NONE = "none"
+    """No console output."""
+
+    TRACE = "trace"
+    """Print every MLflow span as JSON (raw tracing)."""
+
+    INFO = "info"
+    """Print agent/route header lines, in/out summaries, elapsed time, and a summary block."""
+
+
 @dataclass(frozen=True)
 class JudgeFeedback:
     """Single feedback item from the judge agent."""

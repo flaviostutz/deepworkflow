@@ -2,57 +2,50 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepworkflow.adapters.connectors.deepagents_connector import create_agent
-from deepworkflow.shared.prompts import workflow_role
-from deepworkflow.shared.types import WriteOption
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, build_agent_prompt
 
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-REFLECT_SYSTEM_PROMPT = """<OBJECTIVE>
-Inspect the conversation and tool call history from the previous execution phase, then report \
+_OBJECTIVE = """\
+Inspect the conversation and tool call history from the previous execution phase, then report
 exactly which files were read and which were written or modified.
-</OBJECTIVE>
 
-<ROLE>
-You are the `reflect_batch_agent` (see WORKFLOW_CONTEXT). You are a precise observer who analyses \
-the execution transcript to extract file I/O facts — nothing more.
-</ROLE>
+Steps:
+1. Inspect the prior tool call messages in the conversation thread.
+2. Identify every file path that appears in read-tool calls → FILES_READ list.
+3. Identify every file path that appears in write/modify-tool calls → FILES_WRITTEN list.
+4. Respond in exactly the OUTPUT_FORMAT — nothing else."""
 
-<INPUT>
-The execution conversation history provided as the message thread preceding this request.
-</INPUT>
+_ROLE = """\
+You are the `reflect_batch_agent`. You are a precise observer who analyses the execution
+transcript to extract file I/O facts — nothing more."""
 
-<TOOL_GUIDANCE>
-Do not call any tools. All reasoning is done in-context by inspecting the prior tool call messages only.
-</TOOL_GUIDANCE>
+_INPUT = """\
+The execution conversation history provided as the message thread preceding this request."""
 
-<OUTPUT_FORMAT>
+_TOOL_GUIDANCE = """\
+No tools are available for this agent. All reasoning is done in-context by inspecting
+the prior tool call messages only."""
+
+_OUTPUT_FORMAT = """\
 FILES_READ:
 <one absolute or relative file path per line>
 
 FILES_WRITTEN:
 <one absolute or relative file path per line>
-
-If no files were read or written in a section, leave it empty after the header.
-</OUTPUT_FORMAT>
-
-<WORKFLOW_CONTEXT>
-{workflow_context}
-</WORKFLOW_CONTEXT>"""
-
-REFLECT_MESSAGE = """Now reflect on what you just did. Inspect your tool call history and identify:
-1. Which files you READ during execution (list full paths, one per line)
-2. Which files you WROTE/MODIFIED during execution (list full paths, one per line)
-
-Respond in exactly this format:
-FILES_READ:
-<one file path per line>
-
-FILES_WRITTEN:
-<one file path per line>
 
 If no files were read or written in a section, leave it empty after the header."""
+
+_SYSTEM_PROMPT = build_agent_prompt(
+    objective=_OBJECTIVE,
+    role=_ROLE,
+    input_section=_INPUT,
+    tool_guidance=_TOOL_GUIDANCE,
+    output_format=_OUTPUT_FORMAT,
+)
 
 
 def reflect_batch_agent(state: file_batch_workflow_state) -> dict:
@@ -65,26 +58,12 @@ def reflect_batch_agent(state: file_batch_workflow_state) -> dict:
     execute_messages = state.get("execute_messages", [])
 
     if not execute_messages:
-        # Fallback: no messages to continue, return empty
         return {"files_read": [], "files_written": []}
 
-    # Create agent and invoke with existing messages + reflect follow-up
-    agent = create_agent(
-        model=config.model("reflect_batch_agent"),
-        system_prompt=REFLECT_SYSTEM_PROMPT.format(
-            workflow_context=workflow_role(
-                "reflect_batch_agent", "Identify which files were read and written during execution"
-            )
-        ),
-        workspace_dir=config.workspace_dir,
-        write_option=WriteOption.READ_ONLY,
-    )
-
-    # Continue conversation by appending reflect message to existing messages
-    messages = [*execute_messages, {"role": "user", "content": REFLECT_MESSAGE}]
-    result = agent.invoke({"messages": messages})
-    last_message = result["messages"][-1]
-    content = last_message.content if hasattr(last_message, "content") else str(last_message)
+    model = config.model("reflect_batch_agent")
+    messages = [SystemMessage(content=_SYSTEM_PROMPT), *execute_messages, HumanMessage(content=STANDARD_USER_MESSAGE)]
+    response = model.invoke(messages)
+    content = response.content if hasattr(response, "content") else str(response)
 
     files_read, files_written = _parse_reflect_output(content)
 
