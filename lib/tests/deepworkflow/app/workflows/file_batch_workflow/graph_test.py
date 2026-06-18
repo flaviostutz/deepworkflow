@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from deepworkflow.app.workflows.file_batch_workflow.graph import (
+from deepworkflow.app.workflows.file_batch_workflow.graph_log import (
     _finding_lines,
     _finding_summary,
     _log_evaluate_convergence_post,

@@ -22,13 +22,15 @@ lint-fix:
 	mise exec -- uv run --project . ty check
 	mise exec -- uv run --project . pip-audit
 
+test: test-unit
+
 test-unit:
 	mise exec -- uv run --project . pytest --cov=src/deepworkflow --cov-branch --cov-report=term-missing --cov-fail-under=80
 
 clean:
 	rm -rf dist .cache
 
-all: build lint test-unit
+all: build lint test
 
 update-lockfile:
 	mise exec -- uv lock --project . --upgrade
