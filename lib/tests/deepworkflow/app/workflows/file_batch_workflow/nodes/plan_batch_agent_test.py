@@ -4,12 +4,12 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from conftest import mock_deep_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.plan_batch_agent import plan_batch_agent
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.types import EffortConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
     EvaluateFeedback,
     JudgeLevel,
-    OnMaxRetriesExceeded,
     WriteOption,
 )
 
@@ -24,9 +24,7 @@ def _make_config() -> DeepWorkflowConfig:
         task_instructions="do something MUST be done",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        effort="custom",
-        effort_config=resolveEffortConfig(5),
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort=EffortConfig(level=5),
     )
 
 

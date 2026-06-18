@@ -8,13 +8,13 @@ from langchain_core.messages import AIMessage
 from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_convergence_agent import (
     evaluate_batch_convergence_agent,
 )
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.types import EffortConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
     JudgeFinding,
     JudgeLevel,
     JudgeVerdict,
-    OnMaxRetriesExceeded,
     WriteOption,
 )
 
@@ -52,9 +52,7 @@ def _make_config(
         task_instructions="do something",
         model=factory,
         workspace_write_option=WriteOption.READ_ONLY,
-        effort="custom",
-        effort_config=resolveEffortConfig(5),
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort=EffortConfig(level=5),
     )
     return cfg, model
 
@@ -86,9 +84,7 @@ class TestFirstPassBypass:
             task_instructions="do something",
             model=recording_factory,
             workspace_write_option=WriteOption.READ_ONLY,
-            effort="custom",
-            effort_config=resolveEffortConfig(5),
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort=EffortConfig(level=5),
         )
         state = _make_state(config=config, previous_execute_output="")
         result = evaluate_batch_convergence_agent(state)
@@ -155,9 +151,7 @@ class TestEvaluateBatchConvergenceAgent:
             task_instructions="do something",
             model=capturing_factory,
             workspace_write_option=WriteOption.READ_ONLY,
-            effort="custom",
-            effort_config=resolveEffortConfig(5),
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort=EffortConfig(level=5),
         )
         evaluate_batch_convergence_agent(_make_state(config=config))
         assert captured == ["evaluate_batch_convergence_agent"]

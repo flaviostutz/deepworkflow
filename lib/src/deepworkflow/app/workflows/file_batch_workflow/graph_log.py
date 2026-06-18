@@ -97,9 +97,30 @@ def _log_evaluate_map_batches_post(state: dict, result: dict, log_level: Workflo
 def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
     idx = state.get("current_batch_index", 0)
     batches = state.get("task_file_batches") or []
+    lines = []
+
+    # Batch summary — only on the very first batch of the run
+    if idx == 0 and batches:
+        counts = "/".join(str(len(b.batch_files)) for b in batches)
+        lines.append(f"{len(batches)} batches; {counts} files/batch")
+
+    # Evaluation feedback — only when retrying
+    retry_count = state.get("retry_count", 0)
+    if retry_count > 0:
+        judge_verdict = state.get("evaluate_quality_judge_verdict")
+        if judge_verdict is not None:
+            for f in judge_verdict.findings:
+                if log_level != WorkflowLogLevel.DEBUG and f.level.name == "OK":
+                    continue
+                line = f"feedback [{f.level.name}] {f.title}"
+                if f.reason:
+                    line += f": {f.reason}"
+                lines.append(line)
+
     instructions = batches[idx].batch_instructions if idx < len(batches) else ""
     text = (instructions or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(instructions or "", 30)
-    return [f"batch instructions: {text}"]
+    lines.append(f"batch instructions: {text}")
+    return lines
 
 
 def _log_plan_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
@@ -147,10 +168,27 @@ def _log_evaluate_convergence_post(state: dict, result: dict, log_level: Workflo
 # evaluate_batch_quality_agent
 def _log_evaluate_quality_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     verdict = result.get("evaluate_quality_judge_verdict")
-    if verdict is not None:
-        return _format_verdict_lines(verdict, log_level)
-    raw_verdict = result.get("evaluate_quality_verdict")
-    return [raw_verdict.name if raw_verdict is not None else "unknown"]
+    if verdict is None:
+        raw_verdict = result.get("evaluate_quality_verdict")
+        return [raw_verdict.name if raw_verdict is not None else "unknown"]
+
+    lines = []
+    for f in verdict.findings:
+        if log_level != WorkflowLogLevel.DEBUG and f.level.name == "OK":
+            continue
+        line = f"[{f.level.name}] {f.title}"
+        if f.reason:
+            line += f" — {f.reason}"
+        lines.append(line)
+        if f.details:
+            details_text = f.details if log_level == WorkflowLogLevel.DEBUG else _truncate(f.details, 30)
+            lines.append(f"  details: {details_text}")
+        if f.fix:
+            fix_text = f.fix if log_level == WorkflowLogLevel.DEBUG else _truncate(f.fix, 20)
+            lines.append(f"  fix: {fix_text}")
+    if not lines:
+        lines.append("OK")
+    return lines
 
 
 # reduce_consolidate_agent

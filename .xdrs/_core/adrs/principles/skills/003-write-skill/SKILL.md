@@ -1,5 +1,5 @@
 ---
-name: _core-adr-skill-003-write-skill
+name: 003-write-skill
 description: >
   Creates a new skill package following XDRS skill standards: determines type, scope, subject, and number;
   then writes a focused SKILL.md with correct frontmatter, phased instructions, examples, and edge cases.
@@ -45,7 +45,7 @@ Quick test:
 
 **Skill number** — scan `.xdrs/[scope]/[type]/[subject]/skills/` for the highest existing number and increment by 1. Never reuse numbers from deleted skills.
 
-**Skill name** — `[scope]-[type]-skill-[number]-[short-kebab-case-description]`, max 64 characters total. The directory name is `[number]-[short-kebab-case-description]`.
+**Skill name** — `[number]-[short-kebab-case-description]`, max 64 characters total. The directory name matches the `name` field exactly.
 
 ### Phase 3: Research Existing Skills and Related Policies
 
@@ -60,7 +60,7 @@ Use the mandatory agentskills format:
 
 ```
 ---
-name: [scope]-[type]-skill-[number]-[skill-name]
+name: [number]-[skill-name]
 description: >
   [What the skill does AND exactly when an agent should activate it. Max 1024 chars.]
 metadata:
@@ -118,10 +118,10 @@ If any check fails, revise before continuing.
 ### Phase 6: Write Files
 
 1. Create the skill file at `.xdrs/[scope]/[type]/[subject]/skills/[number]-[skill-name]/SKILL.md`.
-2. Create a symlink at `.github/skills/[number]-[skill-name]` so VS Code picks it up immediately:
+2. Create a symlink at `.agents/skills/[number]-[skill-name]` so VS Code picks it up immediately:
    ```
-   mkdir -p .github/skills
-   ln -s ../../.xdrs/[scope]/[type]/[subject]/skills/[number]-[skill-name] .github/skills/[number]-[skill-name]
+   mkdir -p .agents/skills
+   ln -s ../../.xdrs/[scope]/[type]/[subject]/skills/[number]-[skill-name] .agents/skills/[number]-[skill-name]
    ```
 3. Evaluate whether the scope index at `.xdrs/[scope]/index.md` should be updated to reflect the new skill. If the scope index does not exist, create it following article standards and the scope index rules in `_core-adr-policy-001`.
 

@@ -53,5 +53,5 @@ clean:
 
 all: build lint test
 
-bump:
-	npx -y filedist update
+bump-xdrs:
+	npx -y filedist@latest update

@@ -7,6 +7,7 @@ from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
     EffortConfig,
+    EffortConfig,
     JudgeFinding,
     JudgeLevel,
     JudgeVerdict,
@@ -57,9 +58,7 @@ def _make_config(**kwargs) -> DeepWorkflowConfig:
         "task_instructions": "do something",
         "model": _mock_model,
         "workspace_write_option": WriteOption.READ_ONLY,
-        "effort": "custom",
-        "effort_config": _make_effort(),
-        "evaluate_quality_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
+        "effort": EffortConfig(),
     }
     defaults.update(kwargs)
     return DeepWorkflowConfig(**defaults)
@@ -138,9 +137,7 @@ def _patch_all(mocker, **overrides) -> None:
 class TestWorkflowJudgeSkip:
     def test_evaluate_quality_skip_single_batch(self, mocker):
         """Covers route_map_evaluate_quality:skip and route_batch_evaluate_quality:skip."""
-        config = _make_config(
-            effort_config=_make_effort(evaluate_map_max_retries=0, evaluate_batch_quality_max_retries=0)
-        )
+        config = _make_config()
         _patch_all(mocker)
         graph = build_file_batch_workflow()
         result = graph.invoke(_initial_state(config))
@@ -152,10 +149,7 @@ class TestWorkflowSingleBatchPass:
     def test_single_batch_evaluate_quality_pass(self, mocker):
         """Covers route_map_evaluate_quality:evaluate, check_map_verdict:pass,
         route_batch_evaluate_quality:evaluate, check_verdict:pass, next_batch:reduce_consolidate_agent."""
-        config = _make_config(
-            evaluate_quality_min=JudgeLevel.WARNING,
-            effort_config=_make_effort(evaluate_map_max_retries=1, evaluate_batch_quality_max_retries=1),
-        )
+        config = _make_config()
         _patch_all(
             mocker,
             eval_map={"map_evaluate_quality_verdict": JudgeLevel.OK, "map_evaluate_quality_feedbacks": []},
@@ -170,10 +164,7 @@ class TestWorkflowSingleBatchPass:
 class TestWorkflowMapJudgeRetry:
     def test_map_evaluate_quality_retry_then_pass(self, mocker):
         """Covers route_after_map_verdict:retry_or_fail and check_map_retries:map_batches_agent."""
-        config = _make_config(
-            evaluate_quality_min=JudgeLevel.WARNING,
-            effort_config=_make_effort(evaluate_map_max_retries=2),
-        )
+        config = _make_config()
         _patch_all(mocker)
         # Override: eval_map fails first call, passes second call
         mocker.patch(
@@ -192,10 +183,7 @@ class TestWorkflowMapJudgeRetry:
 
     def test_map_evaluate_quality_exhausts_retries(self, mocker):
         """Covers check_map_retries:fail_step."""
-        config = _make_config(
-            evaluate_quality_min=JudgeLevel.WARNING,
-            effort_config=_make_effort(evaluate_map_max_retries=1),
-        )
+        config = _make_config()
         _patch_all(
             mocker,
             eval_map={"map_evaluate_quality_verdict": JudgeLevel.ERROR, "map_evaluate_quality_feedbacks": []},
@@ -209,10 +197,7 @@ class TestWorkflowMapJudgeRetry:
 class TestWorkflowBatchJudgeRetry:
     def test_batch_evaluate_quality_retry_then_pass(self, mocker):
         """Covers check_verdict:retry_or_fail and check_retries:plan_batch_agent."""
-        config = _make_config(
-            evaluate_quality_min=JudgeLevel.WARNING,
-            effort_config=_make_effort(evaluate_batch_quality_max_retries=2),
-        )
+        config = _make_config()
         _patch_all(mocker)
         # Override: eval_batch fails first, passes second
         mocker.patch(
@@ -229,13 +214,15 @@ class TestWorkflowBatchJudgeRetry:
 
     def test_batch_max_retries_fail_policy(self, mocker):
         """Covers check_retries:max_retries_exceeded and check_max_retries_policy:fail_step."""
-        config = _make_config(
+        effort = _make_effort(
+            evaluate_batch_quality_max_retries=1,
             evaluate_quality_min=JudgeLevel.WARNING,
             evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL,
-            effort_config=_make_effort(evaluate_batch_quality_max_retries=1),
         )
+        config = _make_config()
         _patch_all(
             mocker,
+            set_effort={"effort_config": effort},
             eval_batch={"evaluate_quality_verdict": JudgeLevel.ERROR, "evaluate_quality_feedbacks": []},
         )
         graph = build_file_batch_workflow()
@@ -244,13 +231,15 @@ class TestWorkflowBatchJudgeRetry:
 
     def test_batch_max_retries_continue_policy(self, mocker):
         """Covers check_max_retries_policy:record_output_step."""
-        config = _make_config(
+        effort = _make_effort(
+            evaluate_batch_quality_max_retries=1,
             evaluate_quality_min=JudgeLevel.WARNING,
             evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-            effort_config=_make_effort(evaluate_batch_quality_max_retries=1),
         )
+        config = _make_config()
         _patch_all(
             mocker,
+            set_effort={"effort_config": effort},
             eval_batch={"evaluate_quality_verdict": JudgeLevel.ERROR, "evaluate_quality_feedbacks": []},
         )
         graph = build_file_batch_workflow()
@@ -263,9 +252,7 @@ class TestWorkflowBatchJudgeRetry:
 class TestWorkflowMultipleBatches:
     def test_multiple_batches_all_pass(self, mocker):
         """Covers next_batch routing with multiple batches."""
-        config = _make_config(
-            effort_config=_make_effort(evaluate_map_max_retries=0, evaluate_batch_quality_max_retries=0)
-        )
+        config = _make_config()
         _patch_all(mocker, map_batch=_map_output(_three_batches()))
         graph = build_file_batch_workflow()
         result = graph.invoke(_initial_state(config))
@@ -277,7 +264,7 @@ class TestWorkflowBatchRepeat:
     def test_repeat_loop_runs_passes_until_converged(self, mocker):
         """With evaluate_batch_convergence_max_retries=2, not-converged then converged."""
         effort = _make_effort(evaluate_batch_convergence_max_retries=2, evaluate_batch_quality_max_retries=1)
-        config = _make_config(effort_config=effort)
+        config = _make_config()
         _patch_all(
             mocker,
             set_effort={"effort_config": effort},
@@ -295,7 +282,7 @@ class TestWorkflowBatchRepeat:
     def test_safety_ceiling_stops_loop(self, mocker):
         """With evaluate_batch_convergence_max_retries=1 and always not-converged: only one extra pass."""
         effort = _make_effort(evaluate_batch_convergence_max_retries=1, evaluate_batch_quality_max_retries=1)
-        config = _make_config(effort_config=effort)
+        config = _make_config()
         not_converged_mock = mocker.MagicMock(
             return_value={"batch_convergence_verdict": _not_converged(), "batch_convergence_output": ""}
         )
@@ -314,7 +301,7 @@ class TestWorkflowBatchRepeat:
     def test_files_accumulated_across_passes(self, mocker):
         """Files from all passes are merged into batch_outputs."""
         effort = _make_effort(evaluate_batch_convergence_max_retries=2, evaluate_batch_quality_max_retries=1)
-        config = _make_config(effort_config=effort)
+        config = _make_config()
         _patch_all(
             mocker,
             set_effort={"effort_config": effort},
@@ -338,7 +325,7 @@ class TestWorkflowBatchRepeat:
     def test_evaluate_quality_retry_resets_repeat_count(self, mocker):
         """When evaluate_quality triggers a retry, batch_repeat_count is reset to 0."""
         effort = _make_effort(evaluate_batch_convergence_max_retries=1, evaluate_batch_quality_max_retries=1)
-        config = _make_config(effort_config=effort)
+        config = _make_config()
         _patch_all(
             mocker,
             set_effort={"effort_config": effort},

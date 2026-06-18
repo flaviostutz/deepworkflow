@@ -9,7 +9,7 @@ from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExce
 
 def route_effort_config(state: dict) -> Literal["analyze_task_effort_agent", "set_effort_config_step"]:
     """Route: derive effort config automatically or use the user-supplied one."""
-    if state["config"].effort == "auto":
+    if state["config"].effort.type == "auto":
         return "analyze_task_effort_agent"
     return "set_effort_config_step"
 
@@ -83,9 +83,9 @@ def route_map_evaluate_quality(state: dict) -> Literal["skip", "evaluate"]:
 
 def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     """Route: check if the map evaluate_quality verdict meets minimum threshold."""
-    config = state["config"]
+    effort_config = state["effort_config"]
     verdict = state.get("map_evaluate_quality_verdict")
-    if verdict is not None and verdict >= config.evaluate_quality_min:
+    if verdict is not None and verdict >= effort_config.evaluate_quality_min:
         return "pass"
     return "retry_or_fail"
 
@@ -162,9 +162,9 @@ def check_batch_convergence(state: dict) -> Literal["repeat", "evaluate", "skip"
 
 def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
     """Route: check if batch evaluate_quality verdict meets minimum threshold."""
-    config = state["config"]
+    effort_config = state["effort_config"]
     verdict = state["evaluate_quality_verdict"]
-    if verdict >= config.evaluate_quality_min:
+    if verdict >= effort_config.evaluate_quality_min:
         return "pass"
     return "retry_or_fail"
 
@@ -185,8 +185,8 @@ def check_retries(state: dict) -> Literal["plan_batch_agent", "skip_batch_plan_s
 
 def check_max_retries_policy(state: dict) -> Literal["fail_step", "record_output_step"]:
     """Route: apply evaluate_quality_on_max_retries policy."""
-    config = state["config"]
-    if config.evaluate_quality_on_max_retries == OnMaxRetriesExceeded.FAIL:
+    effort_config = state["effort_config"]
+    if effort_config.evaluate_quality_on_max_retries == OnMaxRetriesExceeded.FAIL:
         return "fail_step"
     return "record_output_step"
 

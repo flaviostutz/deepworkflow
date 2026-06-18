@@ -3,8 +3,8 @@ from __future__ import annotations
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_step import map_batches_step
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import EffortConfig, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.types import EffortConfig, EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -17,9 +17,7 @@ def _make_config(**kwargs) -> DeepWorkflowConfig:
         "task_instructions": "do something",
         "model": _mock_model,
         "workspace_write_option": WriteOption.READ_ONLY,
-        "effort": "custom",
-        "effort_config": resolveEffortConfig(1),
-        "evaluate_quality_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
+        "effort": EffortConfig(level=1),
     }
     defaults.update(kwargs)
     return DeepWorkflowConfig(**defaults)
@@ -37,7 +35,7 @@ def _make_effort(**kwargs) -> EffortConfig:
 
 def _make_state(task_files: list[str], effort: EffortConfig) -> dict:
     return {
-        "config": _make_config(effort_config=effort),
+        "config": _make_config(),
         "effort_config": effort,
         "task_files": task_files,
     }
@@ -91,7 +89,7 @@ class TestMapBatchesStep:
 
     def test_sets_task_overview_from_task_instructions(self):
         effort = _make_effort(max_batches=1, max_files_per_batch=None)
-        config = _make_config(effort_config=effort, task_instructions="my instructions")
+        config = _make_config(task_instructions="my instructions")
         state = {"config": config, "effort_config": effort, "task_files": ["a.py"]}
         result = map_batches_step(state)
         assert result["task_overview"] == "my instructions"

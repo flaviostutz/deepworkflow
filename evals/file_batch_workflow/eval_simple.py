@@ -10,7 +10,7 @@ from pathlib import Path
 import keyring
 import mlflow
 
-from deepworkflow import DeepWorkflowConfig, run_workflow
+from deepworkflow import DeepWorkflowConfig, EffortConfig, run_workflow
 from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 mlflow.langchain.autolog()
@@ -54,11 +54,20 @@ CONFIG = DeepWorkflowConfig(
     task_instructions="Analyze each file and report any potential bugs or issues.",
     model=_model_factory,
     workspace_write_option=WriteOption.READ_ONLY,
-    batch_repeat_max=2,
+    effort=EffortConfig(
+        map_batches_mode="static",
+        max_batches=1,
+        max_files_per_batch=None,
+        evaluate_map_max_retries=0,
+        skip_batch_plan=False,
+        evaluate_batch_convergence_max_retries=3,
+        evaluate_batch_quality_max_retries=0,
+        consolidate_mode="static",
+        evaluate_quality_min=JudgeLevel.WARNING,
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        evaluate_quality_batch_instructions=None,
+    ),
     task_files=["**/*.py"],
-    evaluate_quality_min=JudgeLevel.WARNING,
-    evaluate_quality_max_retries=1,
-    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     log_level=WorkflowLogLevel.DEBUG,
 )
 
@@ -86,7 +95,7 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="simple-eval"):
         mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("evaluate_quality_min", CONFIG.evaluate_quality_min.name)
+        mlflow.log_param("evaluate_quality_min", CONFIG.effort.evaluate_quality_min.name)
         mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
 
         try:

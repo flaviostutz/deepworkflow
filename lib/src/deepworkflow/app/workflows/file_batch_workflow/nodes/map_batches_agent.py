@@ -118,8 +118,8 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
     effort_config = state["effort_config"]
     task_files = state["task_files"]
 
-    if config.evaluate_quality_batch_instructions is not None:
-        words = set(config.evaluate_quality_batch_instructions.lower().split())
+    if effort_config.evaluate_quality_batch_instructions is not None:
+        words = set(effort_config.evaluate_quality_batch_instructions.lower().split())
         if not words & _MANDATORY_ADVISORY_KEYWORDS:
             return {
                 "error": (
@@ -197,14 +197,14 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
     if parsed.get("error"):
         return parsed
 
-    parsed["evaluate_quality_batch_instructions"] = _derive_evaluate_quality_instructions(config)
+    parsed["evaluate_quality_batch_instructions"] = _derive_evaluate_quality_instructions(config, effort_config)
     return parsed
 
 
-def _derive_evaluate_quality_instructions(config) -> str:  # type: ignore[misc]
-    """Return evaluate_quality_batch_instructions from config or derive them via LLM."""
-    if config.evaluate_quality_batch_instructions is not None:
-        return config.evaluate_quality_batch_instructions
+def _derive_evaluate_quality_instructions(config, effort_config) -> str:  # type: ignore[misc]
+    """Return evaluate_quality_batch_instructions from effort_config or derive them via LLM."""
+    if effort_config.evaluate_quality_batch_instructions is not None:
+        return effort_config.evaluate_quality_batch_instructions
 
     model = config.model("map_batches_agent")
     messages = [

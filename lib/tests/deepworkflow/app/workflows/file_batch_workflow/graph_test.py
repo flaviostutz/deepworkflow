@@ -289,14 +289,14 @@ class TestLogCallbacks:
         batches = [self._make_batch(["a.py"], instructions=long_instructions)]
         state = {"current_batch_index": 0, "task_file_batches": batches}
         lines = _log_plan_batch_pre(state, WorkflowLogLevel.INFO)
-        assert "…" in lines[0]
+        assert any("…" in line for line in lines)
 
     def test_plan_batch_pre_debug_full(self):
         long_instructions = " ".join(["word"] * 50)
         batches = [self._make_batch(["a.py"], instructions=long_instructions)]
         state = {"current_batch_index": 0, "task_file_batches": batches}
         lines = _log_plan_batch_pre(state, WorkflowLogLevel.DEBUG)
-        assert lines[0] == f"batch instructions: {long_instructions}"
+        assert any(line == f"batch instructions: {long_instructions}" for line in lines)
 
     def test_plan_batch_post_info_truncates(self):
         long_plan = " ".join(["word"] * 50)

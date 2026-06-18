@@ -56,7 +56,7 @@ def map_batches_step(state: file_batch_workflow_state) -> dict:
         "task_file_batches": batches,
         "task_overview": config.task_instructions,
         "consolidation_instructions": "Combine all batch outputs into a single consolidated result.",
-        "evaluate_quality_batch_instructions": config.evaluate_quality_batch_instructions or "",
+        "evaluate_quality_batch_instructions": effort_config.evaluate_quality_batch_instructions or "",
         "current_batch_index": 0,
         "retry_count": 0,
     }

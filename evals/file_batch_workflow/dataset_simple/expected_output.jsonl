@@ -1,1 +1,1 @@
-{"input": {"task_instructions": "Analyze each file and report any potential bugs or issues.", "files": ["sample.py"]}, "expected_output": "ZeroDivisionError; is None"}
+{"input": {"task_instructions": "Analyze each file and report any potential bugs or issues.", "files": ["data/sample.py"]}, "expected_output": "ZeroDivisionError; is None"}

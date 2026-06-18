@@ -7,10 +7,10 @@ if TYPE_CHECKING:
 
 
 def set_effort_config_step(state: file_batch_workflow_state) -> dict:
-    """Copy effort_config from DeepWorkflowConfig into the graph state.
+    """Copy the fully-resolved EffortConfig from DeepWorkflowConfig into the graph state.
 
-    This step runs when ``effort="custom"``.  It simply propagates the
-    user-supplied ``EffortConfig`` into the state so all downstream nodes
-    can read it from ``state["effort_config"]``.
+    This step runs when ``effort.type="custom"``.  Because ``EffortConfig.__post_init__``
+    already resolves all detail fields from ``level`` at construction time, no additional
+    processing is needed here.
     """
-    return {"effort_config": state["config"].effort_config}
+    return {"effort_config": state["config"].effort}

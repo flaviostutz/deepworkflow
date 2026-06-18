@@ -22,8 +22,10 @@ pip install deepworkflow
 ```python
 from langchain_openai import ChatOpenAI
 
+from dataclasses import replace
+
 from deepworkflow import run_workflow, DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WriteOption, WorkflowLogLevel
 
 # model is a required factory: called with agent name, returns a BaseChatModel
 config = DeepWorkflowConfig(
@@ -31,10 +33,11 @@ config = DeepWorkflowConfig(
     task_instructions="Review each file for security issues",
     model=lambda _: ChatOpenAI(model="gpt-4o"),
     workspace_write_option=WriteOption.READ_ONLY,
-    effort="custom",
-    effort_config=resolveEffortConfig(5),          # level 1-10 preset
-    evaluate_quality_min=JudgeLevel.WARNING,
-    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    effort=EffortConfig(
+        level=3,                                   # level 1-10 preset
+        evaluate_quality_min=JudgeLevel.WARNING,
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    ),
     log_level=WorkflowLogLevel.INFO,               # optional: NONE (default in lib), INFO, DEBUG, TRACE
     # task_files=["src/**/*.py"],  # Omit to let the agent discover files
 )
@@ -43,7 +46,7 @@ result = run_workflow(config)
 print(result.output)
 ```
 
-Use `effort="auto"` to let an agent pick the effort level automatically:
+Use `effort=EffortConfig(type="auto")` to let an agent pick the effort level automatically:
 
 ```python
 config = DeepWorkflowConfig(
@@ -51,7 +54,7 @@ config = DeepWorkflowConfig(
     task_instructions="Refactor all modules for consistency",
     model=lambda _: ChatOpenAI(model="gpt-4o"),
     workspace_write_option=WriteOption.WRITE_ANY,
-    effort="auto",   # analyze_task_effort_agent determines the level
+    effort=EffortConfig(type="auto"),   # analyze_task_effort_agent determines the level
 )
 ```
 
@@ -93,14 +96,13 @@ Example `deepworkflow.yml`:
 workspace_dir: /path/to/workspace
 task_instructions: "Review each file for security issues"
 model:
-  model: gpt-4o
+  model_name: gpt-4o
   model_provider: openai
 workspace_write_option: read-only
-effort: custom
-effort_config:
-  level: 5              # shorthand: resolveEffortConfig(5) preset
-evaluate_quality_min: WARNING
-evaluate_quality_on_max_retries: continue
+effort:
+  level: 5                              # level 5 preset
+  evaluate_quality_min: WARNING         # detail fields can be added alongside level
+  evaluate_quality_on_max_retries: continue
 log_level: info         # optional: info (default in CLI), debug, trace, none
 ```
 
@@ -108,20 +110,21 @@ log_level: info         # optional: info (default in CLI), debug, trace, none
 
 The `effort` field controls how much computational work the workflow performs — from a single LLM pass to fully agentic multi-step execution with evaluation and retries.
 
-### `effort="custom"` — explicit `EffortConfig`
+### `EffortConfig(level=N)` — level preset
 
-Set every knob directly using an `EffortConfig` dataclass, or use `resolveEffortConfig(level)` for a preset:
+Use `resolveEffortConfig(level)` or `EffortConfig(level=N)` for a preset, optionally overriding individual fields:
 
 ```python
 from deepworkflow import resolveEffortConfig
 from deepworkflow.shared.types import EffortConfig
 
 # Level preset (recommended)
-effort_config = resolveEffortConfig(5)   # moderate agentic workflow
+effort = EffortConfig(level=3)   # default level; use 1-10 to tune quality vs cost
 
 # Or fully custom
-effort_config = EffortConfig(
-    map_batches_mode="agent",             # "agent" or "static"
+effort = EffortConfig(
+    level=5,                              # base preset
+    map_batches_mode="agent",             # override: "agent" or "static"
     max_batches=None,                     # no batch limit
     max_files_per_batch=None,             # no per-batch file limit
     evaluate_map_max_retries=2,           # map quality evaluation retries
@@ -129,12 +132,15 @@ effort_config = EffortConfig(
     evaluate_batch_convergence_max_retries=1,  # repeat-loop passes per batch
     evaluate_batch_quality_max_retries=2, # quality retries per batch
     consolidate_mode="agent",             # "agent" or "static"
+    evaluate_quality_min=JudgeLevel.WARNING,
+    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    evaluate_quality_batch_instructions=None,  # custom criteria or None for default
 )
 ```
 
-### `effort="auto"` — agent-determined level
+### `EffortConfig(type="auto")` — agent-determined level
 
-The `analyze_task_effort_agent` reads the task instructions and a sample of workspace files, then selects a level from 1–10 and calls `resolveEffortConfig` internally. No `effort_config` field is required.
+The `analyze_task_effort_agent` reads the task instructions and a sample of workspace files, then selects a level from 1–10 and calls `resolveEffortConfig` internally. No detail fields may be set alongside `type="auto"`.
 
 ### Level presets (`resolveEffortConfig`)
 
@@ -159,6 +165,9 @@ The `analyze_task_effort_agent` reads the task instructions and a sample of work
 | `evaluate_batch_convergence_max_retries` | `0` | Extra plan→execute→reflect passes per batch (repeat loop) |
 | `evaluate_batch_quality_max_retries` | `1` | Quality retries per batch; `0` skips quality evaluation |
 | `consolidate_mode` | `"agent"` | `"agent"` uses LLM to consolidate; `"static"` formats outputs as markdown |
+| `evaluate_quality_min` | `WARNING` | Min verdict to accept a batch: `OK`, `INFO`, `WARNING`, `ERROR` (higher = stricter) |
+| `evaluate_quality_on_max_retries` | `continue` | Behavior when retries are exhausted: `FAIL` (abort) or `CONTINUE` (record and move on) |
+| `evaluate_quality_batch_instructions` | `None` | Custom quality criteria for the evaluate quality agent; use MUST/SHOULD language for ERROR/WARNING findings |
 
 ## Model Factory
 
@@ -198,9 +207,8 @@ Files touched across all passes are accumulated and reported together in `BatchO
 
 ```python
 config = DeepWorkflowConfig(
-    ...
-    effort="custom",
-    effort_config=EffortConfig(
+    ...     
+    effort=EffortConfig(
         evaluate_batch_convergence_max_retries=3,  # allow up to 3 extra passes per batch
         # ... other fields
     ),

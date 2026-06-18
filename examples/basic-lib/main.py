@@ -9,7 +9,8 @@ import keyring
 from langchain_openai import AzureChatOpenAI
 
 from deepworkflow import DeepWorkflowConfig, run_workflow
-from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.config import resolveEffortConfig
+from deepworkflow.shared.types import WorkflowLogLevel, WriteOption
 
 _KEYCHAIN_SERVICE = "azure-openai/dev-api-key"
 
@@ -54,9 +55,7 @@ def main() -> None:
         task_instructions="List all Python files and summarize their purpose.",
         model=model_factory,
         workspace_write_option=WriteOption.READ_ONLY,
-        evaluate_quality_min=JudgeLevel.WARNING,
-        evaluate_quality_max_retries=1,
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort_config=resolveEffortConfig(3),
         log_level=WorkflowLogLevel.INFO,
         # task_files=["src/**/*.py"],  # Optional: omit to let the agent discover files
     )

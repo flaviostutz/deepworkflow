@@ -99,12 +99,12 @@ class TestWrapNodeLogLevelInfo:
     def test_show_batch_index(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
         wrap_node("my_node", fn, show_batch_index=True)(_make_state(WorkflowLogLevel.INFO, batch_index=2))
-        assert "> my_node[:2]" in capsys.readouterr().out
+        assert "> my_node[2:0]" in capsys.readouterr().out
 
     def test_show_batch_index_zero(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
         wrap_node("node", fn, show_batch_index=True)(_make_state(WorkflowLogLevel.INFO, batch_index=0))
-        assert "> node[:0]" in capsys.readouterr().out
+        assert "> node[0:0]" in capsys.readouterr().out
 
 
 class TestWrapNodeStats:
@@ -212,6 +212,7 @@ class TestPrintSummary:
     def _make_effort(self, *, evaluate_quality_skip: bool = False):
         effort = MagicMock()
         effort.evaluate_batch_quality_max_retries = 0 if evaluate_quality_skip else 1
+        effort.evaluate_quality_min = JudgeLevel.WARNING
         return effort
 
     def _make_config(self):
@@ -262,8 +263,19 @@ class TestPrintSummary:
         print_summary(stats, final_state, self._make_workflow_result())
         out = capsys.readouterr().out
         assert "models total" in out
-        assert "ref ~US$" in out
-        assert "gpt-5.4" in out
+        assert "~US$" in out
+        assert "gpt-4o" in out
+        assert "ref" not in out
+
+    def test_unknown_model_uses_ref_fallback(self, capsys: pytest.CaptureFixture) -> None:
+        stats = WorkflowStats()
+        stats.tokens_by_model = {"some-unknown-model-xyz": [1000000, 200000]}
+        final_state = {"batch_outputs": [], "config": self._make_config(), "effort_config": self._make_effort()}
+        print_summary(stats, final_state, self._make_workflow_result())
+        out = capsys.readouterr().out
+        assert "~US$" in out
+        assert "some-unknown-model-xyz" in out
+        assert "ref gpt-4.1" in out
 
     def test_empty_state(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()

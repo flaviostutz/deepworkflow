@@ -14,9 +14,10 @@ from deepworkflow.app.workflows.file_batch_workflow.routes import (
     route_map_evaluate_quality,
     route_plan_batch,
 )
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
+    EffortConfig,
     EffortConfig,
     JudgeFinding,
     JudgeLevel,
@@ -36,8 +37,7 @@ def _make_config(**kwargs) -> DeepWorkflowConfig:
         "task_instructions": "do something",
         "model": _mock_model,
         "workspace_write_option": WriteOption.READ_ONLY,
-        "effort": "custom",
-        "effort_config": resolveEffortConfig(5),
+        "effort": EffortConfig(level=5),
     }
     defaults.update(kwargs)
     return DeepWorkflowConfig(**defaults)
@@ -72,18 +72,18 @@ def _ok_verdict() -> JudgeVerdict:
 
 class TestCheckMapVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "map_evaluate_quality_verdict": JudgeLevel.OK}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
         assert check_map_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
         assert check_map_verdict(state) == "retry_or_fail"
 
     def test_retry_when_verdict_is_none(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "map_evaluate_quality_verdict": None}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": None}
         assert check_map_verdict(state) == "retry_or_fail"
 
 
@@ -101,18 +101,18 @@ class TestCheckMapRetries:
 
 class TestCheckVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "evaluate_quality_verdict": JudgeLevel.OK}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.OK}
         assert check_verdict(state) == "pass"
 
     def test_pass_when_verdict_equals_minimum(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "evaluate_quality_verdict": JudgeLevel.WARNING}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.WARNING}
         assert check_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"config": config, "evaluate_quality_verdict": JudgeLevel.ERROR}
+        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.ERROR}
         assert check_verdict(state) == "retry_or_fail"
 
 
@@ -140,13 +140,13 @@ class TestCheckRetries:
 
 class TestCheckMaxRetriesPolicy:
     def test_fail_policy(self):
-        config = _make_config(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL)
-        state = {"config": config}
+        effort = _make_effort(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL)
+        state = {"effort_config": effort}
         assert check_max_retries_policy(state) == "fail_step"
 
     def test_continue_policy(self):
-        config = _make_config(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE)
-        state = {"config": config}
+        effort = _make_effort(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE)
+        state = {"effort_config": effort}
         assert check_max_retries_policy(state) == "record_output_step"
 
 
@@ -269,19 +269,16 @@ class TestRoutePlanBatch:
 
 class TestRouteAfterMapVerdict:
     def test_plan_agent_when_pass_and_no_skip_plan(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        effort = _make_effort(skip_batch_plan=False)
-        state = {"config": config, "effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
+        effort = _make_effort(skip_batch_plan=False, evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
         assert route_after_map_verdict(state) == "plan_batch_agent"
 
     def test_skip_batch_plan_step_when_pass_and_skip_plan(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        effort = _make_effort(skip_batch_plan=True)
-        state = {"config": config, "effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
+        effort = _make_effort(skip_batch_plan=True, evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
         assert route_after_map_verdict(state) == "skip_batch_plan_step"
 
     def test_retry_or_fail_when_verdict_below_min(self):
-        config = _make_config(evaluate_quality_min=JudgeLevel.WARNING)
-        effort = _make_effort(skip_batch_plan=False)
-        state = {"config": config, "effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
+        effort = _make_effort(skip_batch_plan=False, evaluate_quality_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
         assert route_after_map_verdict(state) == "retry_or_fail"

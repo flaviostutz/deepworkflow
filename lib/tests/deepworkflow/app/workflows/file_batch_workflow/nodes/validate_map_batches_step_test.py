@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.validate_map_batches_step import validate_map_batches_step
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import BatchDefinition, EffortConfig, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.types import BatchDefinition, EffortConfig, EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -33,9 +33,7 @@ def _make_config(workspace_dir: str, **kwargs) -> DeepWorkflowConfig:
         "task_instructions": "do something",
         "model": _mock_model,
         "workspace_write_option": WriteOption.READ_ONLY,
-        "effort": "custom",
-        "effort_config": resolveEffortConfig(1),
-        "evaluate_quality_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
+        "effort": EffortConfig(level=1),
     }
     defaults.update(kwargs)
     return DeepWorkflowConfig(**defaults)
@@ -49,7 +47,7 @@ def _make_state(
     task_files_exclude: list[str] | None = None,
 ) -> dict:
     effort = effort or _make_effort()
-    config = _make_config(str(workspace), effort_config=effort, task_files_exclude=task_files_exclude)
+    config = _make_config(str(workspace), task_files_exclude=task_files_exclude)
     return {
         "config": config,
         "effort_config": effort,

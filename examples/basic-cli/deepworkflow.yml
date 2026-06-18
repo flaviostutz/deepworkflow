@@ -10,16 +10,16 @@ task_instructions: "List all Python files and summarize their purpose."
 # Secret: DEEPWORKFLOW_API_KEY in macOS Keychain (run 'make setup-secrets')
 model:
   model_provider: ${DEEPWORKFLOW_MODEL_PROVIDER}
-  model: ${DEEPWORKFLOW_MODEL}
+  model_name: ${DEEPWORKFLOW_MODEL}
   azure_endpoint: ${DEEPWORKFLOW_AZURE_OPENAI_ENDPOINT}
   api_version: ${DEEPWORKFLOW_API_VERSION}
   api_key: ${DEEPWORKFLOW_API_KEY}
 
 workspace_write_option: "read-only"
-evaluate_quality_max_retries: 1
-evaluate_quality_on_max_retries: "continue"
-evaluate_quality_min: "WARNING"
-evaluate_quality_skip: false
+effort:
+  level: 5
+  evaluate_quality_min: WARNING
+  evaluate_quality_on_max_retries: continue
 log_level: info
 
 # Omit task_files to let the map agent discover relevant files automatically

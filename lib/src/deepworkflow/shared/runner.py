@@ -50,7 +50,9 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
             msg = f"clone_workspace_dir already exists: {clone_workspace_dir}"
             raise ValueError(msg)
         shutil.copytree(config.workspace_dir, clone_workspace_dir)
-        config = dataclasses.replace(config, workspace_dir=clone_workspace_dir)
+        config = dataclasses.replace(config, workspace_dir=str(clone_path.resolve()))
+    elif config is not None:
+        config = dataclasses.replace(config, workspace_dir=str(Path(config.workspace_dir).resolve()))
     log_level = config.log_level if config is not None else WorkflowLogLevel.NONE
 
     checkpointer = None
@@ -90,8 +92,9 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
     nested = mlflow.active_run() is not None
     with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}", nested=nested):
         if config is not None:
-            mlflow.log_param("evaluate_quality_min", config.evaluate_quality_min.name)
-            mlflow.log_param("effort", config.effort)
+            mlflow.log_param("evaluate_quality_min", config.effort.evaluate_quality_min.name if config.effort.evaluate_quality_min else "N/A")
+            mlflow.log_param("effort_type", config.effort.type)
+            mlflow.log_param("effort_level", config.effort.level)
             mlflow.log_param("write_option", config.workspace_write_option.value)
 
         if log_level != WorkflowLogLevel.NONE:

@@ -6,8 +6,8 @@ A LangGraph workflow that processes files in batches using a Map → Plan/Execut
 
 ```mermaid
 graph TD
-    resolve_globs_step --> |auto| set_effort_config_step
-    resolve_globs_step --> |analyze| analyze_task_effort_agent
+    resolve_globs_step --> |custom| set_effort_config_step
+    resolve_globs_step --> |auto| analyze_task_effort_agent
 
     set_effort_config_step --> |agent| map_batches_agent
     set_effort_config_step --> |step| map_batches_step

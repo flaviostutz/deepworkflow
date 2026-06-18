@@ -11,7 +11,8 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent impo
     map_batches_agent,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import EffortConfig
+from deepworkflow.shared.types import WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -24,12 +25,13 @@ def _make_state(evaluate_quality_batch_instructions: str | None = None) -> dict:
         task_instructions="Do something MUST be done",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        effort="custom",
-        effort_config=resolveEffortConfig(5),
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-        evaluate_quality_batch_instructions=evaluate_quality_batch_instructions,
+        effort=EffortConfig(level=5),
     )
-    return {"config": config, "task_files": ["a.py"], "effort_config": resolveEffortConfig(5)}
+    effort = resolveEffortConfig(5)
+    if evaluate_quality_batch_instructions is not None:
+        from dataclasses import replace
+        effort = replace(effort, evaluate_quality_batch_instructions=evaluate_quality_batch_instructions)
+    return {"config": config, "task_files": ["a.py"], "effort_config": effort}
 
 
 class TestMapBatchesAgentJudgeInstructionsValidation:
@@ -160,9 +162,7 @@ class TestMapBatchesAgentExcludeSection:
             task_instructions="Do something MUST be done",
             model=_mock_model,
             workspace_write_option=WriteOption.READ_ONLY,
-            effort="custom",
-            effort_config=resolveEffortConfig(5),
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort=EffortConfig(level=5),
             task_files_exclude=["*.lock", "**/__pycache__/**"],
         )
         state = {"config": config, "task_files": [], "effort_config": resolveEffortConfig(5)}
@@ -204,9 +204,7 @@ class TestMapBatchesAgentExcludeSection:
             task_instructions="Do something MUST be done",
             model=_mock_model,
             workspace_write_option=WriteOption.READ_ONLY,
-            effort="custom",
-            effort_config=resolveEffortConfig(5),
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort=EffortConfig(level=5),
             task_files_exclude=["*.lock"],
         )
         state = {"config": config, "task_files": ["a.py"], "effort_config": resolveEffortConfig(5)}

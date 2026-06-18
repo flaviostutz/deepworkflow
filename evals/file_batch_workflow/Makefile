@@ -4,19 +4,20 @@
 include ../../.env
 export
 
+cleanup:
+	rm -rf .workspace
+
 setup-secrets:
 	$(MAKE) -C ../.. setup-secrets
 
 eval: eval-simple eval-complex
 
-eval-simple:
-	rm -rf .workspace
+eval-simple: cleanup
 	mise exec -- uv run --project ../../lib python eval_simple.py
 	@echo ""
 	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5003)"
 
-eval-complex:
-	rm -rf .workspace
+eval-complex: cleanup
 	mise exec -- uv run --project ../../lib python eval_complex.py
 	@echo ""
 	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5003)"

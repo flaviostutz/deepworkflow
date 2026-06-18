@@ -1,16 +1,14 @@
 version: 1
 packages:
-  git:https://github.com/flaviostutz/agentme@main: 3e65bb96d386
-  xdrs-core@0.28.3: 0.28.3
+  git:https://github.com/flaviostutz/agentme@main: 965eca44e4bf
+  xdrs-core@0.30.0: 0.30.0
 sets:
   - package: git:https://github.com/flaviostutz/agentme@main
     output: {}
     selector: {}
 files:
   .:
-    - .xdrs/_core/adrs/index.md|xdrs-core|0.28.1|file|ca7abba5dbdf|0
     - .xdrs/_core/adrs/principles/001-xdrs-core.md|xdrs-core|0.28.1|file|0f2c3f610ddb|0
-    - .xdrs/_core/adrs/principles/003-skill-standards.md|xdrs-core|0.28.1|file|92faf9ffa638|0
     - .xdrs/_core/adrs/principles/004-article-standards.md|xdrs-core|0.28.1|file|1bba5558d7fa|0
     - .xdrs/_core/adrs/principles/005-semantic-versioning-for-xdrs-packages.md|xdrs-core|0.28.1|file|3060fcc77aa7|0
     - .xdrs/_core/adrs/principles/006-research-standards.md|xdrs-core|0.28.1|file|ff847fcd5914|0
@@ -19,15 +17,10 @@ files:
     - .xdrs/_core/adrs/principles/009-presentation-standards.md|xdrs-core|0.28.1|file|d454789bedd2|0
     - .xdrs/_core/adrs/principles/articles/.assets/001-xdrs-overview-slides.md|xdrs-core|0.28.1|file|d4071aa47a37|0
     - .xdrs/_core/adrs/principles/articles/001-xdrs-overview.md|xdrs-core|0.28.1|file|76e6ae9392a1|0
-    - .xdrs/_core/adrs/principles/skills/001-review/SKILL.md|xdrs-core|0.28.1|file|04262f4e9ea2|0
-    - .xdrs/_core/adrs/principles/skills/008-write-xdrs-doc/SKILL.md|xdrs-core|0.28.1|file|0236f9e4819d|0
-    - .xdrs/_core/index.md|xdrs-core|0.28.1|file|de2c5180edbe|0
     - AGENTS.md|xdrs-core|0.28.1|file|c258486519ae|0
-    - .xdrs/agentme/edrs/application/skills/004-select-relevant-xdrs/SKILL.md|agentme|0.12.0|file|997ae7c90f46|0
     - .xdrs/agentme/edrs/devops/005-monorepo-structure.md|agentme|0.12.0|file|1df0b6e51d2a|0
     - .xdrs/agentme/edrs/devops/006-github-pipelines.md|agentme|0.12.0|file|30abcd238670|0
     - .xdrs/agentme/edrs/devops/017-tool-execution-and-scripting.md|agentme|0.12.0|file|b473bcca6786|0
-    - .xdrs/agentme/edrs/devops/skills/002-monorepo-setup/SKILL.md|agentme|0.12.0|file|468ce8ad0ab2|0
     - .xdrs/agentme/edrs/governance/013-contributing-guide-requirements.md|agentme|0.12.0|file|854d5407a2e0|0
     - .xdrs/agentme/edrs/observability/011-service-health-check-endpoint.md|agentme|0.12.0|file|42d59b1d6062|0
     - .xdrs/agentme/edrs/principles/004-unit-test-requirements.md|agentme|0.12.0|file|7e9e80eb341d|0
@@ -36,66 +29,43 @@ files:
     - .xdrs/agentme/edrs/principles/016-cross-language-module-structure.md|agentme|0.12.0|file|1ac9b83627c4|0
     - .xdrs/agentme/edrs/principles/articles/001-continuous-xdr-improvement.md|agentme|0.12.0|file|a4166906ecb4|0
     - .xdrs/agentme/index.md|agentme|0.12.0|file|c9ceb832e8fc|0
-    - .github/agents/speckit.analyze.agent.md|agentme|0.12.0|file|d4736c976438|0
-    - .github/agents/speckit.checklist.agent.md|agentme|0.12.0|file|7f9321e79a3d|0
-    - .github/agents/speckit.clarify.agent.md|agentme|0.12.0|file|fd2239e88634|0
-    - .github/agents/speckit.constitution.agent.md|agentme|0.12.0|file|8802a6e396b6|0
-    - .github/agents/speckit.implement.agent.md|agentme|0.12.0|file|87017d5cab5b|0
-    - .github/agents/speckit.plan.agent.md|agentme|0.12.0|file|8489fdd9656b|0
-    - .github/agents/speckit.specify.agent.md|agentme|0.12.0|file|2889da6ff397|0
-    - .github/agents/speckit.tasks.agent.md|agentme|0.12.0|file|67a69c9c75f2|0
-    - .github/agents/speckit.taskstoissues.agent.md|agentme|0.12.0|file|907276c466a4|0
-    - .github/prompts/speckit.analyze.prompt.md|agentme|0.12.0|file|d07fc7061d8a|0
-    - .github/prompts/speckit.checklist.prompt.md|agentme|0.12.0|file|5acc9508ad5a|0
-    - .github/prompts/speckit.clarify.prompt.md|agentme|0.12.0|file|c858eb4b8b44|0
-    - .github/prompts/speckit.constitution.prompt.md|agentme|0.12.0|file|1422ddfda483|0
-    - .github/prompts/speckit.implement.prompt.md|agentme|0.12.0|file|3b898ee9c80b|0
-    - .github/prompts/speckit.plan.prompt.md|agentme|0.12.0|file|31cb150b78bf|0
-    - .github/prompts/speckit.specify.prompt.md|agentme|0.12.0|file|df46bac4f60e|0
-    - .github/prompts/speckit.tasks.prompt.md|agentme|0.12.0|file|35c255f3e268|0
-    - .github/prompts/speckit.taskstoissues.prompt.md|agentme|0.12.0|file|000747cb6267|0
-    - .specify/memory/constitution.md|agentme|0.12.0|file|796254dc2893|0
-    - .specify/scripts/bash/check-prerequisites.sh|agentme|0.12.0|file|e7640f8e9a6d|0
-    - .specify/scripts/bash/common.sh|agentme|0.12.0|file|af4ab41eb851|0
-    - .specify/scripts/bash/create-new-feature.sh|agentme|0.12.0|file|8b4e6c3e6972|0
-    - .specify/scripts/bash/setup-plan.sh|agentme|0.12.0|file|dd03e9819aee|0
-    - .specify/scripts/bash/update-agent-context.sh|agentme|0.12.0|file|82a1796b848c|0
-    - .specify/templates/agent-file-template.md|agentme|0.12.0|file|22f45fe5238f|0
-    - .specify/templates/checklist-template.md|agentme|0.12.0|file|1f95ddd0ca77|0
-    - .specify/templates/constitution-template.md|agentme|0.12.0|file|a797a150201d|0
-    - .specify/templates/plan-template.md|agentme|0.12.0|file|5cb687798de8|0
-    - .specify/templates/spec-template.md|agentme|0.12.0|file|fce4355100c5|0
-    - .specify/templates/tasks-template.md|agentme|0.12.0|file|18a506449799|0
-    - .github/skills/001-review|xdrs-core|0.28.1|symlink|18c5f3a037d4|0
-    - .github/skills/008-write-xdrs-doc|xdrs-core|0.28.1|symlink|c3a23ff52f24|0
     - .xdrs/agentme/edrs/principles/023-coding-abstraction-practices.md|https://github.com/flaviostutz/agentme|c9ad0a08bdd3|file|e8a0e2aa248b|0
     - .xdrs/agentme/edrs/application/024-ml-dataset-structure.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|c6366b87ea42|0
     - .xdrs/agentme/edrs/application/026-pragmatic-hexagonal-architecture.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|9d68ec534efa|0
     - .xdrs/_core/adrs/principles/002-policy-standards.md|xdrs-core|0.28.3|file|ddf9b37f8830|0
-    - .xdrs/_core/adrs/principles/skills/002-write-policy/SKILL.md|xdrs-core|0.28.3|file|904800bb5336|0
-    - .xdrs/_core/adrs/principles/skills/003-write-skill/SKILL.md|xdrs-core|0.28.3|file|9d38bf64a0aa|0
-    - .xdrs/_core/adrs/principles/skills/004-write-article/SKILL.md|xdrs-core|0.28.3|file|8a9c392061d2|0
-    - .xdrs/_core/adrs/principles/skills/005-write-research/SKILL.md|xdrs-core|0.28.3|file|69e9d4d8fe21|0
-    - .xdrs/_core/adrs/principles/skills/006-write-plan/SKILL.md|xdrs-core|0.28.3|file|d31cdc8956b9|0
-    - .xdrs/_core/adrs/principles/skills/007-write-presentation/SKILL.md|xdrs-core|0.28.3|file|eaae488e6198|0
     - .xdrs/agentme/edrs/application/003-javascript-project-tooling.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|d5f914392005|0
     - .xdrs/agentme/edrs/application/014-python-project-tooling.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|dba27e8025b8|0
-    - .xdrs/agentme/edrs/application/skills/001-create-javascript-project/SKILL.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|b51ee1af08bb|0
-    - .xdrs/agentme/edrs/application/skills/003-create-golang-project/SKILL.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|5f539d42eba5|0
-    - .xdrs/agentme/edrs/application/skills/005-create-python-project/SKILL.md|https://github.com/flaviostutz/agentme|1887e9c5b31d|file|5d311c4355ec|0
     - .xdrs/agentme/edrs/principles/022-secrets-management.md|https://github.com/flaviostutz/agentme|8ab296efa27d|file|e15c25e74397|0
     - .xdrs/agentme/edrs/devops/008-common-targets.md|https://github.com/flaviostutz/agentme|83d0dc9f9c17|file|cea6e5ed72dd|0
     - .xdrs/agentme/edrs/devops/027-environment-variable-configuration.md|https://github.com/flaviostutz/agentme|50703f8d51a4|file|abcd9018b35b|0
     - .xdrs/agentme/edrs/application/015-cli-tool-standards.md|https://github.com/flaviostutz/agentme|50703f8d51a4|file|d267213c2ef1|0
     - .xdrs/agentme/edrs/application/020-ai-agents-quality-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|b05454a80521|0
-    - .xdrs/agentme/edrs/application/021-ai-workflow-development-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|999c623a4888|0
-    - .xdrs/agentme/edrs/application/028-ai-eval-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|def9601b337b|0
     - .xdrs/agentme/edrs/application/010-golang-project-tooling.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|9242df8fb773|0
     - .xdrs/agentme/edrs/application/018-ai-llm-development-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|3610f826f156|0
     - .xdrs/agentme/edrs/application/025-ai-agent-xdrs-knowledge-layer.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|1f494fd2f614|0
     - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|43ae7fd37f6a|0
     - .xdrs/agentme/edrs/principles/007-project-quality-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|c9d3b3b87944|0
-    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|3e65bb96d386|file|29448460b042|0
     - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|https://github.com/flaviostutz/agentme|3e65bb96d386|file|2de3e660caed|0
-checksum: 0835f4454140
+    - .xdrs/_core/adrs/index.md|xdrs-core|0.30.0|file|7367d1a2ced0|0
+    - .xdrs/_core/adrs/principles/003-skill-standards.md|xdrs-core|0.30.0|file|fe47ba81e2b6|0
+    - .xdrs/_core/adrs/principles/skills/001-review/SKILL.md|xdrs-core|0.30.0|file|e6f9d0f9a205|0
+    - .xdrs/_core/adrs/principles/skills/002-write-policy/SKILL.md|xdrs-core|0.30.0|file|452994eb069d|0
+    - .xdrs/_core/adrs/principles/skills/003-write-skill/SKILL.md|xdrs-core|0.30.0|file|4054074525c1|0
+    - .xdrs/_core/adrs/principles/skills/004-write-article/SKILL.md|xdrs-core|0.30.0|file|08cc2f327050|0
+    - .xdrs/_core/adrs/principles/skills/005-write-research/SKILL.md|xdrs-core|0.30.0|file|d6b435696670|0
+    - .xdrs/_core/adrs/principles/skills/006-write-plan/SKILL.md|xdrs-core|0.30.0|file|74cb4de9b664|0
+    - .xdrs/_core/adrs/principles/skills/007-write-presentation/SKILL.md|xdrs-core|0.30.0|file|9ce759499c1a|0
+    - .xdrs/_core/adrs/principles/skills/008-write-xdrs-doc/SKILL.md|xdrs-core|0.30.0|file|58d5e4175583|0
+    - .xdrs/_core/index.md|xdrs-core|0.30.0|file|15cb8156db83|0
+    - .xdrs/agentme/edrs/application/skills/004-select-relevant-xdrs/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|6a1d9c0475cc|0
+    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|e987f493ecf7|0
+    - .xdrs/agentme/edrs/application/021-ai-workflow-development-standards.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|30dfe123af67|0
+    - .xdrs/agentme/edrs/application/028-ai-eval-standards.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|5fcacdce8b10|0
+    - .xdrs/agentme/edrs/application/skills/001-create-javascript-project/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|3b56adc85a84|0
+    - .xdrs/agentme/edrs/application/skills/003-create-golang-project/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|9c0ebcfc31b6|0
+    - .xdrs/agentme/edrs/application/skills/005-create-python-project/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|2dcd646d4977|0
+    - .xdrs/agentme/edrs/devops/skills/002-monorepo-setup/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|dedda5aac579|0
+    - .agents/skills/001-review|xdrs-core|0.30.0|symlink|18c5f3a037d4|0
+    - .agents/skills/008-write-xdrs-doc|xdrs-core|0.30.0|symlink|c3a23ff52f24|0
+checksum: e74fcc3dfe94
 

@@ -11,15 +11,12 @@ def _mock_model(_agent_name: str) -> None:  # type: ignore[return]
 
 
 def _make_config(**kwargs) -> DeepWorkflowConfig:
-    from deepworkflow.shared.config import resolveEffortConfig
-
     defaults = {
         "workspace_dir": "/tmp/workspace",
         "task_instructions": "Do something",
         "model": _mock_model,
         "workspace_write_option": WriteOption.READ_ONLY,
-        "effort": "custom",
-        "effort_config": resolveEffortConfig(5),
+        "effort": EffortConfig(level=5),
     }
     defaults.update(kwargs)
     return DeepWorkflowConfig(**defaults)
@@ -31,53 +28,55 @@ class TestDeepWorkflowConfig:
         assert config.workspace_dir == "/tmp/workspace"
         assert config.task_files is None
         assert config.max_failure_retries == 0
-        assert config.evaluate_quality_min == JudgeLevel.WARNING
+        assert config.effort.level == 5
         assert callable(config.model)
         assert config.model("any_agent") is None  # _mock_model returns None
+
+    def test_default_effort(self):
+        config = DeepWorkflowConfig(
+            workspace_dir="/tmp",
+            task_instructions="x",
+            model=_mock_model,
+            workspace_write_option=WriteOption.READ_ONLY,
+        )
+        assert config.effort.level == 3
+        assert config.effort.type == "custom"
 
     def test_full_config(self):
         config = _make_config(
             workspace_dir="/workspace",
             task_instructions="Do multiple things",
             workspace_write_option=WriteOption.WRITE_ANY,
-            effort="custom",
-            effort_config=resolveEffortConfig(5),
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL,
+            effort=EffortConfig(
+                level=5,
+                evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL,
+                evaluate_quality_min=JudgeLevel.OK,
+                evaluate_quality_batch_instructions="Output MUST be valid",
+            ),
             task_files=["a.py", "b.py"],
-            evaluate_quality_min=JudgeLevel.OK,
-            evaluate_quality_batch_instructions="Output MUST be valid",
             max_failure_retries=2,
         )
         assert config.task_files == ["a.py", "b.py"]
-        assert config.evaluate_quality_batch_instructions == "Output MUST be valid"
+        assert config.effort.evaluate_quality_batch_instructions == "Output MUST be valid"
 
     def test_immutable(self):
         config = _make_config()
         with pytest.raises(AttributeError):
             config.workspace_dir = "/other"  # type: ignore[misc]
 
-    def test_effort_custom_requires_effort_config(self):
-        with pytest.raises(ValueError, match="effort_config is required"):
-            DeepWorkflowConfig(
-                workspace_dir="/tmp",
-                task_instructions="x",
-                model=_mock_model,
-                workspace_write_option=WriteOption.READ_ONLY,
-                effort="custom",
-                effort_config=None,
-            )
-
-    def test_effort_auto_allows_no_effort_config(self):
+    def test_effort_auto_type(self):
         config = DeepWorkflowConfig(
             workspace_dir="/tmp",
             task_instructions="x",
             model=_mock_model,
             workspace_write_option=WriteOption.READ_ONLY,
-            effort="auto",
-            effort_config=None,
+            effort=EffortConfig(type="auto"),
         )
-        assert config.effort == "auto"
-        assert config.effort_config is None
+        assert config.effort.type == "auto"
+
+    def test_effort_auto_with_options_raises(self):
+        with pytest.raises(ValueError, match="no options can be set when type='auto'"):
+            EffortConfig(type="auto", evaluate_quality_min=JudgeLevel.WARNING)
 
 
 class TestModelRef:

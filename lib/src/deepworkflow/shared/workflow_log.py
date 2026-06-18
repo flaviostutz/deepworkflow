@@ -22,19 +22,38 @@ if TYPE_CHECKING:
 # Model price table: (input_per_1M_usd, output_per_1M_usd)
 # ---------------------------------------------------------------------------
 
+# Prices sourced from https://developers.openai.com/api/docs/pricing (standard tier, per 1M tokens)
 _MODEL_PRICES: dict[str, tuple[float, float]] = {
+    # OpenAI GPT-5.x flagship (confirmed June 2026)
+    "gpt-5.5": (5.0, 30.0),
+    "gpt-5.5-pro": (30.0, 180.0),
+    "gpt-5.4": (2.5, 15.0),
+    "gpt-5.4-mini": (0.75, 4.5),
+    "gpt-5.4-nano": (0.20, 1.25),
+    "gpt-5.4-pro": (30.0, 180.0),
+    # OpenAI GPT-4.1 series
+    "gpt-4.1": (2.0, 8.0),
+    "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1-nano": (0.10, 0.40),
+    # OpenAI GPT-4o series
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "gpt-4-turbo": (10.0, 30.0),
-    "gpt-5.4": (15.0, 60.0),
+    # OpenAI o-series reasoning
     "o1": (15.0, 60.0),
+    "o3": (10.0, 40.0),
     "o3-mini": (1.1, 4.4),
+    "o4-mini": (1.1, 4.4),
+    # Anthropic Claude
     "claude-3-5-sonnet": (3.0, 15.0),
     "claude-3-5-haiku": (0.8, 4.0),
     "claude-3-opus": (15.0, 75.0),
+    # Google Gemini
     "gemini-1.5-pro": (1.25, 5.0),
     "gemini-1.5-flash": (0.075, 0.3),
 }
+
+_FALLBACK_MODEL = "gpt-4.1"
 
 # ---------------------------------------------------------------------------
 # Shared runtime stats
@@ -130,7 +149,7 @@ def wrap_node(  # noqa: PLR0913, C901
             elif stat == "convergence_retry":
                 stats.convergence_retries += 1
 
-        display_name = f"{name}[:{state.get('current_batch_index', '')}]" if show_batch_index else name
+        display_name = f"{name}[{state.get('current_batch_index', '')}:{state.get('retry_count', 0)}]" if show_batch_index else name
 
         if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
             print(f"> {display_name}")  # noqa: T201
@@ -278,8 +297,10 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
     if workflow_result.status == "failed":
         result_label = "FAILED"
     elif batch_outputs and config is not None:
+        effort_config = final_state.get("effort_config")
         worst = min((b.evaluate_quality_verdict for b in batch_outputs), default=None)
-        result_label = "WARNING" if (worst is not None and worst < config.evaluate_quality_min) else "OK"
+        min_quality = effort_config.evaluate_quality_min if effort_config is not None else None
+        result_label = "WARNING" if (worst is not None and min_quality is not None and worst < min_quality) else "OK"
     else:
         result_label = "OK"
 
@@ -300,10 +321,22 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
     total_in = sum(v[0] for v in stats.tokens_by_model.values())
     total_out = sum(v[1] for v in stats.tokens_by_model.values())
 
-    # Reference cost using gpt-5.4 pricing (not the actual model used)
-    gpt54_in, gpt54_out = _MODEL_PRICES["gpt-5.4"]
-    ref_cost = (total_in / 1_000_000) * gpt54_in + (total_out / 1_000_000) * gpt54_out
-    cost_str = f" (ref ~US$ {ref_cost:.2f} on gpt-5.4)" if (total_in or total_out) else ""
+    # Calculate cost using actual model prices; fall back to gpt-4.1 ref price when unknown
+    actual_cost = 0.0
+    display_models: list[str] = []
+    fallback_price = _MODEL_PRICES[_FALLBACK_MODEL]
+    for model_name, (in_tok, out_tok) in stats.tokens_by_model.items():
+        price = _find_model_price(model_name)
+        if price is not None:
+            actual_cost += (in_tok / 1_000_000) * price[0] + (out_tok / 1_000_000) * price[1]
+            display_models.append(model_name)
+        else:
+            actual_cost += (in_tok / 1_000_000) * fallback_price[0] + (out_tok / 1_000_000) * fallback_price[1]
+            display_models.append(f"{model_name} (ref {_FALLBACK_MODEL})")
+    if (total_in or total_out) and display_models:
+        cost_str = f" (~US$ {actual_cost:.2f} on {', '.join(display_models)})"
+    else:
+        cost_str = ""
     lines = [
         "> summary:",
         f"  result: {result_label}",

@@ -10,7 +10,7 @@ from pathlib import Path
 import keyring
 import mlflow
 
-from deepworkflow import DeepWorkflowConfig, run_workflow
+from deepworkflow import DeepWorkflowConfig, EffortConfig, run_workflow
 from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 mlflow.langchain.autolog()
@@ -84,12 +84,15 @@ CONFIG = DeepWorkflowConfig(
         "parsers/*.py",
         "transformers/*.py",
     ],
-    task_files_batch_size=20,
-    batch_repeat_max=2,
-    evaluate_quality_max_retries=2,
-    evaluate_quality_min=JudgeLevel.WARNING,
-    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-    evaluate_quality_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
+    effort=EffortConfig(
+        map_batches_mode="static",
+        max_files_per_batch=20,
+        evaluate_batch_convergence_max_retries=2,
+        evaluate_batch_quality_max_retries=2,
+        evaluate_quality_min=JudgeLevel.WARNING,
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        evaluate_quality_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
+    ),
     log_level=WorkflowLogLevel.DEBUG,
 )
 
@@ -117,11 +120,11 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="complex-eval"):
         mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("evaluate_quality_min", CONFIG.evaluate_quality_min.name)
+        mlflow.log_param("evaluate_quality_min", CONFIG.effort.evaluate_quality_min.name)
         mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
-        mlflow.log_param("batch_repeat_max", CONFIG.batch_repeat_max)
-        mlflow.log_param("evaluate_quality_max_retries", CONFIG.evaluate_quality_max_retries)
-        mlflow.log_param("task_files_batch_size", CONFIG.task_files_batch_size)
+        mlflow.log_param("evaluate_batch_convergence_max_retries", CONFIG.effort.evaluate_batch_convergence_max_retries)
+        mlflow.log_param("evaluate_batch_quality_max_retries", CONFIG.effort.evaluate_batch_quality_max_retries)
+        mlflow.log_param("max_files_per_batch", CONFIG.effort.max_files_per_batch)
 
         try:
             run_workflow(CONFIG, clone_workspace_dir=EVAL_CLONE_DIR)

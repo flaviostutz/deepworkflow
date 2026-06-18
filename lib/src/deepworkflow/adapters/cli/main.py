@@ -10,7 +10,7 @@ import yaml
 
 from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
 from deepworkflow.shared.runner import run_workflow
-from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.types import EffortConfig, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -111,7 +111,6 @@ def _build_config(
     """Build DeepWorkflowConfig from raw YAML dict."""
     model_factory = _make_model_factory(raw, model_override=model_override)
 
-    evaluate_quality_min_raw = raw.get("evaluate_quality_min", "WARNING")
     task_files_raw = raw.get("task_files")
 
     # CLI flag overrides YAML value; YAML defaults to "info"
@@ -123,43 +122,86 @@ def _build_config(
         task_instructions=raw["task_instructions"],
         model=model_factory,
         workspace_write_option=WriteOption(raw["workspace_write_option"]),
-        effort=raw.get("effort", "custom"),
-        effort_config=_build_effort_config(raw),
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded(
-            raw.get("evaluate_quality_on_max_retries", OnMaxRetriesExceeded.CONTINUE.value)
-        ),
+        effort=_build_effort_config(raw),
         task_files=task_files_raw,
-        evaluate_quality_min=JudgeLevel[evaluate_quality_min_raw.upper()],
-        evaluate_quality_batch_instructions=raw.get("evaluate_quality_batch_instructions"),
         max_failure_retries=raw.get("max_failure_retries", 0),
         mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "sqlite:///mlflow.db"),
         log_level=log_level,
     )
 
 
-def _build_effort_config(raw: dict) -> EffortConfig | None:
-    """Build EffortConfig from YAML dict, or return None for auto effort."""
-    if raw.get("effort", "custom") == "auto":
-        return None
-    ec_raw = raw.get("effort_config")
+def _build_effort_config(raw: dict) -> EffortConfig:
+    """Build an EffortConfig from the raw YAML dict.
+
+    YAML format::
+
+        effort:           # optional block; defaults to EffortConfig() = level=3, type=custom
+          level: 3        # 1-10 preset (used when type=custom)
+          type: custom    # "custom" (default) or "auto"
+          # Any EffortConfig detail field can be added to override the level default:
+          map_batches_mode: agent
+          max_batches: null
+          max_files_per_batch: null
+          evaluate_map_max_retries: 2
+          skip_batch_plan: false
+          evaluate_batch_convergence_max_retries: 1
+          evaluate_batch_quality_max_retries: 2
+          consolidate_mode: agent
+          evaluate_quality_min: WARNING
+          evaluate_quality_on_max_retries: continue
+          evaluate_quality_batch_instructions: null
+
+    When ``type: auto``, a specialized agent analyses ``task_instructions`` and the
+    workspace files to derive the optimal effort level and quality gate settings.
+    Quality-gate instructions in the prompt (MUST / SHOULD / COULD language) are
+    automatically used to configure evaluation criteria.  No other fields may be
+    set alongside ``type: auto``.
+    """
+    from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded
+
+    ec_raw = raw.get("effort")
+
     if ec_raw is None:
-        # Default: level 5 preset
-        return resolveEffortConfig(5)
-    if isinstance(ec_raw, int):
-        return resolveEffortConfig(ec_raw)
-    if isinstance(ec_raw, dict) and "level" in ec_raw:
-        return resolveEffortConfig(int(ec_raw["level"]))
-    # Full EffortConfig dict
-    return EffortConfig(
-        map_batches_mode=ec_raw.get("map_batches_mode", "agent"),
-        max_batches=ec_raw.get("max_batches"),
-        max_files_per_batch=ec_raw.get("max_files_per_batch"),
-        evaluate_map_max_retries=ec_raw.get("evaluate_map_max_retries", 1),
-        skip_batch_plan=ec_raw.get("skip_batch_plan", False),
-        evaluate_batch_convergence_max_retries=ec_raw.get("evaluate_batch_convergence_max_retries", 0),
-        evaluate_batch_quality_max_retries=ec_raw.get("evaluate_batch_quality_max_retries", 1),
-        consolidate_mode=ec_raw.get("consolidate_mode", "agent"),
-    )
+        # Default: EffortConfig() = level=3, type=custom, all fields resolved from level
+        return EffortConfig()
+
+    if not isinstance(ec_raw, dict):
+        msg = "'effort' in config file must be a dict, e.g.:\n  effort:\n    level: 3"
+        raise TypeError(msg)
+
+    effort_type: str = ec_raw.get("type", "custom").lower()
+    level = int(ec_raw.get("level", 3))
+
+    # Collect only the keys explicitly present in the YAML (excluding type/level)
+    kwargs: dict = {"level": level, "type": effort_type}
+
+    _UNSET_STR = "__MISSING__"
+
+    # Nullable int fields (None means "no limit" not "unset", so explicit null is valid)
+    for key in ("max_batches", "max_files_per_batch"):
+        if key in ec_raw:
+            kwargs[key] = ec_raw[key]  # None or int
+
+    if "map_batches_mode" in ec_raw:
+        kwargs["map_batches_mode"] = ec_raw["map_batches_mode"]
+    if "consolidate_mode" in ec_raw:
+        kwargs["consolidate_mode"] = ec_raw["consolidate_mode"]
+    if "evaluate_map_max_retries" in ec_raw:
+        kwargs["evaluate_map_max_retries"] = int(ec_raw["evaluate_map_max_retries"])
+    if "skip_batch_plan" in ec_raw:
+        kwargs["skip_batch_plan"] = bool(ec_raw["skip_batch_plan"])
+    if "evaluate_batch_convergence_max_retries" in ec_raw:
+        kwargs["evaluate_batch_convergence_max_retries"] = int(ec_raw["evaluate_batch_convergence_max_retries"])
+    if "evaluate_batch_quality_max_retries" in ec_raw:
+        kwargs["evaluate_batch_quality_max_retries"] = int(ec_raw["evaluate_batch_quality_max_retries"])
+    if "evaluate_quality_min" in ec_raw:
+        kwargs["evaluate_quality_min"] = JudgeLevel[ec_raw["evaluate_quality_min"].upper()]
+    if "evaluate_quality_on_max_retries" in ec_raw:
+        kwargs["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(ec_raw["evaluate_quality_on_max_retries"].lower())
+    if "evaluate_quality_batch_instructions" in ec_raw:
+        kwargs["evaluate_quality_batch_instructions"] = ec_raw["evaluate_quality_batch_instructions"]
+
+    return EffortConfig(**kwargs)
 
 
 def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Callable[[str], BaseChatModel]:
@@ -192,9 +234,13 @@ def _make_model_factory(raw: dict, *, model_override: str | None = None) -> Call
     if not isinstance(model_dict, dict):
         _model_type_error = (
             "'model' in config file must be a dict of init_chat_model kwargs, "
-            "e.g.:\n  model:\n    model: gpt-4o\n    model_provider: openai"
+            "e.g.:\n  model:\n    model_name: gpt-4o\n    model_provider: openai"
         )
         raise TypeError(_model_type_error)
+
+    # Remap model_name -> model for init_chat_model compatibility
+    if "model_name" in model_dict:
+        model_dict = {"model": model_dict["model_name"], **{k: v for k, v in model_dict.items() if k != "model_name"}}
 
     # Env-var keys serve as fallback; explicit api_key in the config dict takes precedence.
     merged = {**env_api_keys, **model_dict}

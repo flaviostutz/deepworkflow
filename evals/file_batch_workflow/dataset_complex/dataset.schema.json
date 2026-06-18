@@ -18,7 +18,7 @@
         "files": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "List of file paths (relative to dataset data/) included in the evaluation run."
+          "description": "List of file paths (relative to the dataset root, e.g. data/parsers/csv_parser.py) included in the evaluation run."
         }
       }
     },
