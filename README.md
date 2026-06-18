@@ -7,6 +7,29 @@ deepworkflow solves this by running your prompt through a **configurable quality
 - **Less effort** → fewer judge checks, less parallelism, fewer LLM calls → faster and cheaper runs.
 - **More effort** → more intermediate checks, more convergence loops → highest possible quality at higher cost.
 
+## Getting Started
+
+### CLI
+
+Example `deepworkflow.yml`:
+
+```yaml
+workspace_dir: /path/to/workspace
+workspace_write_option: write-any
+task_instructions: "Evaluate if files in input/* are compliant with all rules in rules/* and generate one report per file in reports/"
+task_files:
+  - "input/**"
+model:
+  model_name: gpt-4o
+  model_provider: openai
+effort:
+  level: 1
+```
+
+```bash
+uvx deepworkflow --config deepworkflow.yml
+```
+
 ## Usage
 
 Depending on the effort level, different nodes are activated inside the workflow to verify quality at each stage. In practice this means you can:
@@ -33,29 +56,6 @@ After testing:
 - this might take a long time, but the quality will be guaranteed
 
 The repetition and check patterns ensure that even cheaper models follow your prompt with the correct depth across all files without getting "lazy", all without having to rebuild a full custom workflow every time you need to raise or lower quality.
-
-## Getting Started
-
-### CLI
-
-Example `mydeepworkflow.yml` for the scenario above:
-
-```yaml
-workspace_dir: /path/to/workspace
-workspace_write_option: write-any
-task_instructions: "Evaluate if files in input/* are compliant with all rules in rules/* and generate one report per file in reports/"
-task_files:
-  - "input/**"
-model:
-  model_name: gpt-4o
-  model_provider: openai
-effort:
-  level: 1
-```
-
-```bash
-uvx deepworkflow --config mydeepworkflow.yml
-```
 
 ## How it works
 
@@ -257,7 +257,7 @@ result = graph.invoke(
 |-----------|----------|
 | `lib/` | Published Python library (`deepworkflow` package) |
 | `examples/` | Runnable consumer examples (`basic-cli/`, `basic-lib/`) |
-| `evals/` | Eval test suites (`file_batch_workflow/`) — require a live API key |
+| `evals/` | Eval test suites (`eval-simple/`, `eval-complex/`) — require a live API key |
 
 ### Commands
 

@@ -42,10 +42,11 @@ test: test-unit
 	@echo "Run make test-examples to execute example scripts. Note that some examples may require additional setup or credentials."
 
 eval:
-	$(MAKE) -C evals/file_batch_workflow eval
+	$(MAKE) -C evals/file-batch-workflow/eval-simple eval
+	$(MAKE) -C evals/file-batch-workflow/eval-complex eval
 
 dev-mlflow:
-	$(MAKE) -C evals/file_batch_workflow dev-mlflow
+	$(MAKE) -C evals/file-batch-workflow/eval-simple dev-mlflow
 
 clean:
 	rm -rf .venv .cache

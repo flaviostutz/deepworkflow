@@ -229,10 +229,19 @@ class WorkflowStatsCallback(BaseCallbackHandler):
         prompts: list[str],  # noqa: ARG002
         *,
         run_id: Any,
-        **kwargs: Any,  # noqa: ARG002
+        **kwargs: Any,
     ) -> None:
-        model_name = str(serialized.get("name") or (serialized.get("id") or ["?"])[-1])
-        self._pending[str(run_id)] = model_name
+        invocation_params: dict[str, Any] = kwargs.get("invocation_params") or {}
+        serialized_kwargs: dict[str, Any] = serialized.get("kwargs") or {}
+        model_name = (
+            invocation_params.get("model")
+            or invocation_params.get("azure_deployment")
+            or serialized_kwargs.get("model_name")
+            or serialized_kwargs.get("azure_deployment")
+            or serialized.get("name")
+            or (serialized.get("id") or ["?"])[-1]
+        )
+        self._pending[str(run_id)] = str(model_name)
 
     def on_llm_end(
         self,
@@ -332,7 +341,7 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
             display_models.append(model_name)
         else:
             actual_cost += (in_tok / 1_000_000) * fallback_price[0] + (out_tok / 1_000_000) * fallback_price[1]
-            display_models.append(f"{model_name} (ref {_FALLBACK_MODEL})")
+            display_models.append(f"{_FALLBACK_MODEL}*")
     if (total_in or total_out) and display_models:
         cost_str = f" (~US$ {actual_cost:.2f} on {', '.join(display_models)})"
     else:

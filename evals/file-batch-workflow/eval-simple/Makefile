@@ -1,24 +1,22 @@
-.PHONY: eval eval-simple eval-complex dev-mlflow setup-secrets
+.PHONY: eval run dev-mlflow setup-secrets cleanup
 
 # Load .env from repo root (non-secret Azure configuration)
-include ../../.env
+include ../../../.env
 export
 
 cleanup:
 	rm -rf .workspace
 
 setup-secrets:
-	$(MAKE) -C ../.. setup-secrets
+	$(MAKE) -C ../../.. setup-secrets
 
-eval: eval-simple eval-complex
-
-eval-simple: cleanup
-	mise exec -- uv run --project ../../lib python eval_simple.py
+eval: cleanup
+	mise exec -- uv run --project ../../../lib python eval-simple.py
 	@echo ""
 	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5003)"
 
-eval-complex: cleanup
-	mise exec -- uv run --project ../../lib python eval_complex.py
+run: cleanup
+	mise exec -- uv run --project ../../../lib python eval-simple.py || true
 	@echo ""
 	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5003)"
 

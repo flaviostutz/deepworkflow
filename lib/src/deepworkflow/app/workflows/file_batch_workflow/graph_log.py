@@ -76,11 +76,11 @@ def _log_map_batches_post(state: dict, result: dict, log_level: WorkflowLogLevel
         return []
     batches = result.get("task_file_batches") or []
     overview = result.get("task_overview", "")
-    avg = sum(len(b.batch_files) for b in batches) / len(batches) if batches else 0
     overview_text = overview if log_level == WorkflowLogLevel.DEBUG else _truncate(overview, 30)
+    counts = "/".join(str(len(b.batch_files)) for b in batches)
     return [
         f"overview: {overview_text}",
-        f"{len(batches)} batches; {avg:.0f} files/batch",
+        f"{len(batches)} batches; {counts} files/batch",
     ]
 
 
@@ -98,11 +98,6 @@ def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
     idx = state.get("current_batch_index", 0)
     batches = state.get("task_file_batches") or []
     lines = []
-
-    # Batch summary — only on the very first batch of the run
-    if idx == 0 and batches:
-        counts = "/".join(str(len(b.batch_files)) for b in batches)
-        lines.append(f"{len(batches)} batches; {counts} files/batch")
 
     # Evaluation feedback — only when retrying
     retry_count = state.get("retry_count", 0)
