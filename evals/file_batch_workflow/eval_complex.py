@@ -11,7 +11,7 @@ import keyring
 import mlflow
 
 from deepworkflow import DeepWorkflowConfig, run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 mlflow.langchain.autolog()
 
@@ -86,11 +86,11 @@ CONFIG = DeepWorkflowConfig(
     ],
     task_files_batch_size=20,
     batch_repeat_max=2,
-    judge_max_retries=2,
-    judge_min=JudgeVerdict.WARNING,
-    judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-    judge_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
-    log_level=WorkflowLogLevel.INFO,
+    evaluate_quality_max_retries=2,
+    evaluate_quality_min=JudgeLevel.WARNING,
+    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    evaluate_quality_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
+    log_level=WorkflowLogLevel.DEBUG,
 )
 
 
@@ -117,10 +117,10 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="complex-eval"):
         mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("judge_min", CONFIG.judge_min.name)
+        mlflow.log_param("evaluate_quality_min", CONFIG.evaluate_quality_min.name)
         mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
         mlflow.log_param("batch_repeat_max", CONFIG.batch_repeat_max)
-        mlflow.log_param("judge_max_retries", CONFIG.judge_max_retries)
+        mlflow.log_param("evaluate_quality_max_retries", CONFIG.evaluate_quality_max_retries)
         mlflow.log_param("task_files_batch_size", CONFIG.task_files_batch_size)
 
         try:

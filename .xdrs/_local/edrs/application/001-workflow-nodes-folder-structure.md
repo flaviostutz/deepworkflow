@@ -32,8 +32,8 @@ app/workflows/<workflow>/
     plan_batch_agent.py
     execute_batch_agent.py
     reflect_batch_agent.py
-    evaluate_batch_progress_agent.py  # progress judge: checks whether meaningful progress was made each pass (repeat loop only)
-    evaluate_batch_quality_agent.py   # quality judge: final quality check after all passes complete
+    evaluate_batch_progress_agent.py  # evaluate_batch_progress_agent: checks whether meaningful progress was made each pass (repeat loop only)
+    evaluate_batch_quality_agent.py   # evaluate_batch_quality_agent: final quality check after all passes complete
     reduce_consolidate_agent.py
     resolve_globs_step.py
 ```
@@ -42,7 +42,7 @@ app/workflows/<workflow>/
 
 - Each module in `nodes/` MUST export exactly one node function whose name matches the module filename.
 - Step nodes (deterministic, no LLM) MUST use the `_step` suffix; agent nodes (deepagents) MUST use the `_agent` suffix, consistent with [agentme-edr-020](../../../agentme/edrs/application/020-ai-workflow-development-standards.md) rule `09-node-naming-conventions`.
-- `nodes/__init__.py` MAY expose shared helpers (e.g. `parse_judge_output`) but MUST NOT re-export node functions — callers import directly from the sub-module.
+- `nodes/__init__.py` MAY expose shared helpers (e.g. `parse_evaluate_output`) but MUST NOT re-export node functions — callers import directly from the sub-module.
 
 ## References
 

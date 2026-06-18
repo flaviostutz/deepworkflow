@@ -33,6 +33,13 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+exclude = [
+    ".cache",
+    ".venv",
+    "dist",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/deepworkflow"]
 

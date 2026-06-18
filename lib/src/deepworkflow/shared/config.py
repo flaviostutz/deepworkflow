@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid as _uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -38,6 +38,72 @@ class _ModelRef:
         return factory(agent_name)
 
 
+_EFFORT_MAX_LEVEL = 10
+_EFFORT_AGENT_MODE_THRESHOLD = 4
+_EFFORT_SKIP_PLAN_THRESHOLD = 6
+
+
+def resolveEffortConfig(level: int) -> EffortConfig:  # noqa: N802
+    """Return a preset ``EffortConfig`` for the given effort level (1-10).
+
+    - Level 1: everything static, all evaluations skipped; only the execute agent runs.
+    - Level 10: everything agentic, maximum evaluation retries (10).
+
+    Thresholds:
+    - ``map_batches_mode`` / ``consolidate_mode`` flip to ``"agent"`` at level >= 4.
+    - ``skip_batch_plan`` becomes ``False`` (plan agent enabled) at level >= 6.
+    - Retry counts are linearly interpolated: ``0`` at level 1, ``10`` at level 10.
+    """
+    if not 1 <= level <= _EFFORT_MAX_LEVEL:
+        msg = f"resolveEffortConfig: level must be between 1 and {_EFFORT_MAX_LEVEL}, got {level}"
+        raise ValueError(msg)
+
+    # Linear interpolation: 0 at level=1, 10 at level=10
+    retries = round((level - 1) * _EFFORT_MAX_LEVEL / (_EFFORT_MAX_LEVEL - 1))
+
+    mode: Literal["agent", "static"] = "agent" if level >= _EFFORT_AGENT_MODE_THRESHOLD else "static"
+    consolidate: Literal["agent", "static"] = "agent" if level >= _EFFORT_AGENT_MODE_THRESHOLD else "static"
+    skip_plan = level < _EFFORT_SKIP_PLAN_THRESHOLD
+
+    if mode == "static" and level == 1:
+        # Level 1: single-batch mode; max_files_per_batch not needed
+        return EffortConfig(
+            map_batches_mode="static",
+            max_batches=1,
+            max_files_per_batch=None,
+            evaluate_map_max_retries=0,
+            skip_batch_plan=True,
+            evaluate_batch_convergence_max_retries=0,
+            evaluate_batch_quality_max_retries=0,
+            consolidate_mode="static",
+        )
+
+    if mode == "static":
+        # Levels 2-3: static map but multiple batches are possible; caller must set max_files_per_batch.
+        # We set a sensible default of 10 files/batch for levels 2-3.
+        return EffortConfig(
+            map_batches_mode="static",
+            max_batches=None,
+            max_files_per_batch=10,
+            evaluate_map_max_retries=0,
+            skip_batch_plan=skip_plan,
+            evaluate_batch_convergence_max_retries=0,
+            evaluate_batch_quality_max_retries=retries,
+            consolidate_mode="static",
+        )
+
+    return EffortConfig(
+        map_batches_mode="agent",
+        max_batches=None,
+        max_files_per_batch=None,
+        evaluate_map_max_retries=retries,
+        skip_batch_plan=skip_plan,
+        evaluate_batch_convergence_max_retries=retries,
+        evaluate_batch_quality_max_retries=retries,
+        consolidate_mode=consolidate,
+    )
+
+
 @dataclass(frozen=True)
 class DeepWorkflowConfig:
     """Configuration for a deepworkflow run."""
@@ -47,7 +113,7 @@ class DeepWorkflowConfig:
 
     task_instructions: str
     """Instructions describing the objectives of the task, how to map/group work into
-    focus batches, and how to judge whether outcomes have the desired quality."""
+    focus batches, and how to evaluate whether outcomes have the desired quality."""
 
     model: Callable[[str], BaseChatModel]
     """Factory function that returns a LangChain ``BaseChatModel`` instance for each
@@ -78,14 +144,18 @@ class DeepWorkflowConfig:
     """Whether agents can write files in the workspace.  One of ``READ_ONLY``,
     ``WRITE_ANY``, or ``WRITE_ONLY_TASK_FILES``."""
 
-    judge_max_retries: int
-    """Maximum number of times a batch can be retried because it did not reach the
-    minimum required judge outcome."""
+    effort: Literal["auto", "custom"] = "custom"
+    """How to determine the effort configuration.
 
-    judge_on_max_retries: OnMaxRetriesExceeded
-    """What to do when the maximum number of retries is reached without achieving the
-    required minimum judge verdict.  Either ``FAIL`` (abort the workflow) or
-    ``CONTINUE`` (record the output as-is and move on)."""
+    - ``"custom"`` (default): use the ``effort_config`` field directly.
+    - ``"auto"``: an ``analyze_task_effort_agent`` runs first and derives an ``EffortConfig``
+      automatically based on the task instructions and files.
+    """
+
+    effort_config: EffortConfig | None = None
+    """Effort configuration controlling how many LLM calls, evaluations, and retries the
+    workflow performs.  Required when ``effort="custom"``; ignored when ``effort="auto"``.
+    Use ``resolveEffortConfig(level)`` to construct a preset from a 1-10 scale."""
 
     task_files: list[str] | None = None
     """List of files or glob selectors pointing to **existing files** in the workspace
@@ -102,18 +172,18 @@ class DeepWorkflowConfig:
     The ``evaluate_map_batches_agent`` verifies that no excluded file appears in any
     batch.  If ``None``, no files are excluded."""
 
-    judge_min: JudgeVerdict = field(default=JudgeVerdict.WARNING)
-    """Minimum judge verdict required to consider a batch execution successful.
-    If the verdict is below this threshold the batch is retried with judge feedback.
+    evaluate_quality_on_max_retries: OnMaxRetriesExceeded = field(default=OnMaxRetriesExceeded.CONTINUE)
+    """What to do when the maximum number of retries is reached without achieving the
+    required minimum evaluate_quality verdict.  Either ``FAIL`` (abort the workflow) or
+    ``CONTINUE`` (record the output as-is and move on).  Defaults to ``CONTINUE``."""
+
+    evaluate_quality_min: JudgeLevel = field(default=JudgeLevel.WARNING)
+    """Minimum evaluate_quality verdict required to consider a batch execution successful.
+    If the verdict is below this threshold the batch is retried with evaluate quality feedback.
     Applied during both map and batch execution phases."""
 
-    task_files_batch_size: int | None = None
-    """Number of files to include in each batch.  If ``0``, all files go into a single
-    batch.  If ``None``, the map agent decides the optimal grouping based on
-    ``task_instructions``."""
-
-    judge_batch_instructions: str | None = None
-    """Specific quality criteria used by the judge when evaluating a batch.  Use
+    evaluate_quality_batch_instructions: str | None = None
+    """Specific quality criteria used by evaluate quality when evaluating a batch.  Use
     mandatory/advisory language such as MUST, REQUIRED, MANDATORY or SHOULD, COULD to
     mark findings as ERROR, WARNING, or INFO respectively.  If ``None``, a default
     quality check is applied."""
@@ -122,34 +192,27 @@ class DeepWorkflowConfig:
     """How many times to retry when a system error occurs (e.g. network or
     authentication failures)."""
 
-    judge_skip: bool = False
-    """If ``True``, no judge steps are performed during map and batch execution.
-    Can save time and tokens, but the quality of the work will not be verified."""
-
-    batch_repeat_max: int = 0
-    """Maximum number of additional plan→execute→reflect passes to run per batch
-    when the progress judge detects meaningful work was done.  ``0`` (default)
-    disables the repeat loop entirely.  When greater than zero, after each
-    reflect a lightweight progress judge asks whether the pass made meaningful
-    progress; if yes and the ceiling has not been reached the loop repeats with
-    a fresh agent session.  The quality judge still runs only once, after all
-    repeats complete."""
-
     mlflow_tracking_uri: str = "sqlite:///mlflow.db"
     """MLflow tracking URI used to store experiment runs.  Defaults to a local
     SQLite database (``mlflow.db``).  Set to a remote URI such as
     ``http://my-mlflow-server:5000`` to use a remote tracking server."""
 
     log_level: WorkflowLogLevel = field(default=WorkflowLogLevel.NONE)
-    """Console log verbosity for the workflow run.  One of ``NONE`` (default), ``TRACE``,
-    or ``INFO``.
+    """Console log verbosity for the workflow run.  One of ``NONE`` (default),
+    ``INFO``, ``DEBUG``, or ``TRACE``.
 
     - ``NONE`` — no console output.
-    - ``TRACE`` — every MLflow span printed as JSON (raw tracing).
     - ``INFO`` — agent/route headers, in/out summaries, elapsed time, and a summary block.
+    - ``DEBUG`` — like INFO, but prints full LLM-generated text (plans, outputs, evaluations)
+      without truncation.
+    - ``TRACE`` — every MLflow span printed as JSON (raw tracing).
     """
 
     def __post_init__(self) -> None:
+        if self.effort == "custom" and self.effort_config is None:
+            msg = "DeepWorkflowConfig: effort_config is required when effort='custom'."
+            raise ValueError(msg)
+
         # Wrap raw callables in a _ModelRef so the frozen-dataclass field stores
         # a serialization-safe proxy rather than a bare Callable.  _ModelRef is
         # itself a frozen dataclass (string-only fields) that LangGraph can

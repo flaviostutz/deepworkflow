@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 _OBJECTIVE = """\
 Produce a detailed, actionable step-by-step plan for accomplishing the task on the current batch of
-files. Do not execute the plan."""
+files. Take into consideration the task instructions, task overview, batch instructions,
+write option and any previous evaluate quality or evaluation feedback.
+Do not execute the plan."""
 
 _ROLE = """\
 You are the `plan_batch_agent`. You are an expert at analysing a file set and designing a precise,
@@ -27,7 +29,7 @@ Agent-specific inputs:
 - files_to_work_with:
 {batch_files}
 - write_option: {write_option}
-{judge_feedback_section}"""
+{evaluate_quality_feedback_section}"""
 
 _TOOL_GUIDANCE = f"""{TOOL_GUIDANCE_BASE}
 
@@ -43,7 +45,7 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
     """Plan the execution for the current batch.
 
     Creates a fresh agent each time (including retries):
-    'spawns a brand new agent thread with only task context + judge_feedback'.
+    'spawns a brand new agent thread with only task context + evaluate_quality_feedback'.
     """
     config = state["config"]
     batch_index = state["current_batch_index"]
@@ -52,14 +54,17 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
     task_overview = state.get("task_overview", "")
     batch_instructions = current_batch.batch_instructions or "(none)"
 
-    judge_feedback_section = ""
-    if state.get("judge_feedbacks"):
+    evaluate_quality_feedback_section = ""
+    judge_verdict = state.get("evaluate_quality_judge_verdict")
+    if judge_verdict is not None and judge_verdict.findings:
         feedback_lines = [
-            f"- [{fb.type.name}] {fb.file}: {fb.description}" + (f" | Proposal: {fb.proposal}" if fb.proposal else "")
-            for fb in state["judge_feedbacks"]
+            f"- [{f.level.name}] {f.title}"
+            + (f": {f.reason}" if f.reason else "")
+            + (f" | Fix: {f.fix}" if f.fix else "")
+            for f in judge_verdict.findings
         ]
-        judge_feedback_section = "Previous attempt was rejected by the judge. Address this feedback:\n" + "\n".join(
-            feedback_lines
+        evaluate_quality_feedback_section = (
+            "Previous attempt was rejected by evaluate_quality. Address this feedback:\n" + "\n".join(feedback_lines)
         )
 
     prompt = build_agent_prompt(
@@ -71,7 +76,7 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
             batch_instructions=batch_instructions,
             batch_files="\n".join(current_batch.batch_files),
             write_option=config.workspace_write_option.value,
-            judge_feedback_section=judge_feedback_section,
+            evaluate_quality_feedback_section=evaluate_quality_feedback_section,
         ),
         tool_guidance=_TOOL_GUIDANCE,
         output_format=_OUTPUT_FORMAT,

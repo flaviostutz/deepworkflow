@@ -1,8 +1,8 @@
 # deepworkflow
 
-A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → reflect → [repeat loop] → quality judge → reduce**.
+A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → reflect → [repeat loop] → evaluate quality → reduce**.
 
-The repeat loop re-runs `plan → execute → reflect` while a **progress judge** (`evaluate_batch_progress_agent`) detects meaningful work was done in the previous pass, up to a configurable ceiling (`batch_repeat_max`). Once all passes complete, a **quality judge** (`evaluate_batch_quality_agent`) performs the final quality check on the batch result.
+The repeat loop re-runs `plan → execute → reflect` while a **evaluate_batch_progress_agent** (`evaluate_batch_progress_agent`) detects meaningful work was done in the previous pass, up to a configurable ceiling (`batch_repeat_max`). Once all passes complete, a **evaluate quality** (`evaluate_batch_quality_agent`) performs the final quality check on the batch result.
 
 Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a LangGraph-based ReAct agent framework with filesystem support. Exposed as a Python library (LangGraph subgraph embeddable in other applications) and as a standalone CLI with config file.
 
@@ -20,7 +20,7 @@ uvx deepworkflow --config mydeepworkflow.yml
 from langchain_openai import ChatOpenAI
 
 from deepworkflow import run_workflow, DeepWorkflowConfig
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.types import EvaluateVerdict, OnMaxRetriesExceeded, WriteOption
 
 # model is a factory: called with the agent name, returns a BaseChatModel
 def model_factory(agent_name: str):
@@ -31,9 +31,9 @@ config = DeepWorkflowConfig(
     task_instructions="Review each file for security issues and report findings",
     model=model_factory,
     workspace_write_option=WriteOption.READ_ONLY,
-    judge_min=JudgeVerdict.WARNING,
-    judge_max_retries=2,
-    judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    evaluate_quality_min=EvaluateVerdict.WARNING,
+    evaluate_quality_max_retries=2,
+    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     # task_files=["src/**/*.py"],  # Omit to let the agent discover files
 )
 
@@ -84,28 +84,35 @@ Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agen
 graph TD
     Start([Start]) --> ResolveGlobs[resolve_globs_step]
     ResolveGlobs --> MapBatches[map_batches_agent]
-    MapBatches --> JudgeSkipMap{judge_skip?}
+    MapBatches --> JudgeSkipMap{evaluate_quality_skip?}
     JudgeSkipMap -- No --> EvalMap[evaluate_map_batches_agent]
     JudgeSkipMap -- Yes --> BatchLoop[For each batch]
-    EvalMap --> MapOK{map verdict ≥\njudge_min?}
+    EvalMap --> MapOK{map verdict ≥\nevaluate_quality_min?}
     MapOK -- Yes --> BatchLoop
     MapOK -- No --> MapIncrementRetry[map_increment_retry_step]
     MapIncrementRetry --> MapRetries{Map retries\nremaining?}
     MapRetries -- Yes --> MapBatches
     MapRetries -- No --> Fail([fail_step])
     BatchLoop --> Plan[plan_batch_agent]
-    Plan --> Execute[execute_batch_agent]
-    Execute --> Reflect[reflect_batch_agent]
+    Plan --> Execute
+
+    subgraph SharedHistory ["shared chat history (execute_messages)"]
+        Execute[execute_batch_agent]
+        Reflect[reflect_batch_agent]
+        EvalProgress[evaluate_batch_progress_agent]
+    end
+
+    Execute --> Reflect
     Reflect --> AfterReflect{batch_repeat_max > 0?}
-    AfterReflect -- Yes --> EvalProgress[evaluate_batch_progress_agent]
-    AfterReflect -- No, judge_skip --> SkipJudge2[skip_judge_step]
+    AfterReflect -- Yes --> EvalProgress
+    AfterReflect -- No, evaluate_quality_skip --> SkipJudge2[skip_evaluate_quality_step]
     AfterReflect -- No --> Evaluate[evaluate_batch_quality_agent]
     EvalProgress --> ProgressCheck{progress &\nceiling not reached?}
     ProgressCheck -- repeat --> IncrBatchRepeat[increment_batch_repeat_step]
     IncrBatchRepeat --> Plan
     ProgressCheck -- evaluate --> Evaluate
     ProgressCheck -- skip --> SkipJudge2
-    Evaluate --> VerdictCheck{verdict ≥\njudge_min?}
+    Evaluate --> VerdictCheck{verdict ≥\nevaluate_quality_min?}
     SkipJudge2 --> RecordOutput[record_output_step]
     VerdictCheck -- Yes --> RecordOutput
     VerdictCheck -- No --> IncrementRetry[increment_retry_step]
@@ -129,17 +136,17 @@ graph TD
    - `task_overview` — high-level strategy description shared with all downstream agents
    - `consolidation_instructions` — instructions for the final reduce phase
    - `batches` — list of `BatchDefinition(batch_files, batch_instructions)` groupings
-3. **evaluate_map_batches_agent** — Read-only judge that validates the map output (completeness, disjointness, instruction quality). If rejected, map_batches_agent retries with judge feedback.
+3. **evaluate_map_batches_agent** — Read-only evaluator that validates the map output (completeness, disjointness, instruction quality). If rejected, map_batches_agent retries with evaluate_quality feedback.
 
 ### Phase 2: Execute (per batch)
 
 For each batch produced by the map phase:
 
-4. **plan_batch_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + judge feedback (on retry).
-5. **execute_batch_agent** — Agent with configurable write permissions that executes the plan. Stores its message history for reflect.
-6. **reflect_batch_agent** — Continues the execute agent's conversation to self-report which files were read and written.
-7. **evaluate_batch_progress_agent** — *Progress judge.* Read-only judge that checks whether meaningful progress was made during the current pass. When `batch_repeat_max > 0`, loops back to `plan_batch_agent` if progress was made and the repeat ceiling hasn't been reached; otherwise hands off to the quality judge.
-8. **evaluate_batch_quality_agent** — *Quality judge.* Read-only judge that evaluates the overall quality of batch execution results. If verdict < judge_minimum, the batch retries from plan_batch_agent with judge feedback.
+4. **plan_batch_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + evaluate quality feedback (on retry).
+5. **execute_batch_agent** — Agent with configurable write permissions that executes the plan. Stores its message history (`execute_messages`) for the agents that follow.
+6. **reflect_batch_agent** — Continues `execute_batch_agent`'s conversation thread (shares `execute_messages`) to self-report which files were read and written.
+7. **evaluate_batch_progress_agent** — *evaluate_batch_progress_agent.* Continues the same conversation thread (shares `execute_messages`) to assess whether meaningful progress was made during the current pass. When `batch_repeat_max > 0`, loops back to `plan_batch_agent` if progress was made and the repeat ceiling hasn't been reached; otherwise hands off to evaluate_quality.
+8. **evaluate_batch_quality_agent** — *evaluate_batch_quality_agent.* Read-only evaluator that evaluates the overall quality of batch execution results. If verdict < evaluate_quality_minimum, the batch retries from plan_batch_agent with evaluate quality feedback.
 
 ### Phase 3: Reduce
 
@@ -171,14 +178,15 @@ result = run_workflow(config, thread_id=result.thread_id, checkpoint_dir="./chec
 | `task_instructions` | yes | — | String describing the task to perform |
 | `model` | yes | — | Factory `Callable[[str], BaseChatModel]`; called with agent name |
 | `workspace_write_option` | yes | — | `read-only`, `write-any`, or `write-only-task-files` |
-| `judge_max_retries` | yes | — | Max retries when judge rejects |
-| `judge_on_max_retries` | yes | — | `fail` or `continue` |
+| `evaluate_quality_max_retries` | yes | — | Max retries when evaluate_quality rejects |
+| `evaluate_quality_on_max_retries` | yes | — | `fail` or `continue` |
 | `task_files` | no | None | File paths/globs to process (supports line ranges). Omit to let agent discover files |
 | `task_files_batch_size` | no | all | Max files per batch (map agent decides grouping) |
-| `judge_min` | no | WARNING | Minimum quality: OK, INFO, WARNING, ERROR |
-| `judge_batch_instructions` | no | standard | Custom evaluation criteria for the judge |
-| `judge_skip` | no | false | Skip all judge steps (useful for fast iteration) |
+| `evaluate_quality_min` | no | WARNING | Minimum quality: OK, INFO, WARNING, ERROR |
+| `evaluate_quality_batch_instructions` | no | standard | Custom evaluation criteria for evaluate_quality |
+| `evaluate_quality_skip` | no | false | Skip all evaluate quality steps (useful for fast iteration) |
 | `max_failure_retries` | no | 0 | Retries on infrastructure failures |
+| `log_level` | no | none | Console verbosity: `none`, `info`, `debug` (full LLM output), `trace` (raw MLflow spans) |
 
 Example `deepworkflow.yml`:
 
@@ -190,9 +198,9 @@ model:
   model: gpt-4o
   model_provider: openai
 workspace_write_option: read-only
-judge_min: WARNING
-judge_max_retries: 2
-judge_on_max_retries: continue
+evaluate_quality_min: WARNING
+evaluate_quality_max_retries: 2
+evaluate_quality_on_max_retries: continue
 # task_files:  # Omit to let the agent discover files
 #   - "src/**/*.py"
 ```

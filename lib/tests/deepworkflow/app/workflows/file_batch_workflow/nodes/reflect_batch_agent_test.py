@@ -7,7 +7,7 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent im
     _parse_reflect_output,
     reflect_batch_agent,
 )
-from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
 from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
 
 
@@ -27,8 +27,9 @@ def _make_config(response: str = "") -> tuple[DeepWorkflowConfig, FakeListChatMo
         task_instructions="do something",
         model=factory,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=1,
-        judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     )
     return cfg, model
 

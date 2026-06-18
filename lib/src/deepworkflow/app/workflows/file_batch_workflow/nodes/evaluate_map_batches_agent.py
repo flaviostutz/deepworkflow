@@ -1,137 +1,21 @@
 from __future__ import annotations
 
-import fnmatch
-import re
-from collections import Counter
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from deepworkflow.adapters.connectors.deepagents_connector import create_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
 from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, TOOL_GUIDANCE_BASE, build_agent_prompt
-from deepworkflow.shared.types import BatchDefinition, JudgeFeedback, JudgeVerdict, WriteOption
+from deepworkflow.shared.types import JudgeFinding, JudgeLevel, JudgeVerdict, WriteOption
 
 if TYPE_CHECKING:
     from deepworkflow.app.workflows.file_batch_workflow.states import file_batch_workflow_state
 
-_LINE_RANGE_RE = re.compile(r":\d+-\d+$")
-
-
-def _base_path(file_ref: str) -> str:
-    """Strip optional :start-end line-range suffix from a file reference."""
-    return _LINE_RANGE_RE.sub("", file_ref)
-
-
-def _algorithmic_map_checks(  # noqa: C901, PLR0912
-    workspace_dir: str,
-    task_files: list[str],
-    batches: list[BatchDefinition],
-    task_files_exclude: list[str] | None = None,
-) -> list[JudgeFeedback]:
-    """Deterministic checks that do not rely on an LLM.
-
-    1. Every file in every batch's ``batch_files`` must exist on disk.
-    2. When ``task_files`` was provided (non-empty), every task file must appear
-       in exactly one batch — no file may be missing or assigned to more than one
-       batch, and no invented file may appear in a batch.
-    3. No batch file may match any pattern in ``task_files_exclude``.
-    """
-    feedbacks: list[JudgeFeedback] = []
-    workspace = Path(workspace_dir)
-
-    all_batch_files: list[str] = [f for b in batches for f in b.batch_files]
-
-    # ── Check 1: all batch_files must exist in the workspace ──────────────────
-    for file_ref in all_batch_files:
-        base = _base_path(file_ref)
-        path = Path(base)
-        if not path.is_absolute():
-            path = workspace / base
-        if not path.exists():
-            feedbacks.append(
-                JudgeFeedback(
-                    file=file_ref,
-                    type=JudgeVerdict.ERROR,
-                    description=f"File '{file_ref}' does not exist in the workspace.",
-                    proposal=f"Remove '{file_ref}' from batch_files or correct the path.",
-                )
-            )
-
-    # ── Check 2: task_files_exclude — no excluded file may appear in any batch ──
-    if task_files_exclude:
-        for file_ref in all_batch_files:
-            base = _base_path(file_ref)
-            # Build candidate paths for matching: absolute and relative forms
-            abs_path = base if Path(base).is_absolute() else str(workspace / base)
-            for pattern in task_files_exclude:
-                if fnmatch.fnmatch(abs_path, pattern) or fnmatch.fnmatch(base, pattern):
-                    feedbacks.append(
-                        JudgeFeedback(
-                            file=file_ref,
-                            type=JudgeVerdict.ERROR,
-                            description=(
-                                f"File '{file_ref}' matches exclude pattern '{pattern}' "
-                                "and must not be included in any batch."
-                            ),
-                            proposal=f"Remove '{file_ref}' from batch_files.",
-                        )
-                    )
-                    break
-
-    # ── Check 3: task_files coverage & disjointness ───────────────────────────
-    if task_files:
-        task_bases = [_base_path(f) for f in task_files]
-        batch_bases = [_base_path(f) for f in all_batch_files]
-
-        task_set = set(task_bases)
-        batch_counter: Counter[str] = Counter(batch_bases)
-
-        # Missing: task file not assigned to any batch
-        for tf in task_bases:
-            if batch_counter[tf] == 0:
-                feedbacks.append(
-                    JudgeFeedback(
-                        file=tf,
-                        type=JudgeVerdict.ERROR,
-                        description=f"File '{tf}' from task_files is not assigned to any batch.",
-                        proposal=f"Add '{tf}' to exactly one batch.",
-                    )
-                )
-
-        # Duplicated: task file assigned to more than one batch
-        for bf, count in batch_counter.items():
-            if count > 1 and bf in task_set:
-                feedbacks.append(
-                    JudgeFeedback(
-                        file=bf,
-                        type=JudgeVerdict.ERROR,
-                        description=f"File '{bf}' appears in {count} batches (must be in exactly one).",
-                        proposal=f"Remove '{bf}' from all but one batch.",
-                    )
-                )
-
-        # Invented: batch file not in the original task_files list
-        for bf in batch_counter:
-            if bf not in task_set:
-                feedbacks.append(
-                    JudgeFeedback(
-                        file=bf,
-                        type=JudgeVerdict.ERROR,
-                        description=(
-                            f"File '{bf}' is assigned to a batch but was not in the original task_files list."
-                        ),
-                        proposal=f"Remove '{bf}' from batch_files; only files from task_files may be used.",
-                    )
-                )
-
-    return feedbacks
-
 
 _EVAL_MAP_OBJECTIVE = """\
-Judge the quality of the batch planning step and return structured feedback with a verdict."""
+Judge the quality of the batch planning step and return structured findings with a verdict."""
 
 _EVAL_MAP_ROLE = """\
-You are the `evaluate_map_batches_agent`. You are an expert judge evaluating whether a batch plan
+You are the `evaluate_map_batches_agent`. You are an expert evaluator judging whether a batch plan
 is coherent, well-scoped, and ready for parallel execution."""
 
 _EVAL_MAP_INPUT_TEMPLATE = """\
@@ -176,44 +60,41 @@ Evaluate the batch plan against these criteria:
 
 _EVAL_MAP_OUTPUT_FORMAT = """\
 {{
-  "judge_feedbacks": [
+  "verdict": "OK|INFO|WARNING|ERROR",
+  "findings": [
     {{
-      "file": "general",
-      "type": "OK|INFO|WARNING|ERROR",
-      "description": "explanation",
-      "proposal": "how to fix the issue (required for WARNING or ERROR; empty for OK or INFO)"
+      "level": "OK|INFO|WARNING|ERROR",
+      "title": "<10 words — action-oriented label for this finding>",
+      "reason": "<30 words max — why this level was assigned; required when level is not OK>",
+      "details": "<up to 400 words — notes and findings; required when level is not OK>",
+      "fix": "<up to 200 words — concrete fix steps; include only when directly inferrable>"
     }}
-  ],
-  "judge_verdict": "OK|INFO|WARNING|ERROR"
+  ]
 }}
 
-The verdict MUST be the worst (lowest) type across all feedbacks."""
+The verdict MUST be the worst (lowest) level across all findings."""
 
 
 def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
-    """Judge the map_batches_agent output.
+    """Evaluate the map_batches_agent output using an LLM qualitative evaluator.
 
-    Runs deterministic algorithmic checks first (file existence, task_files coverage,
-    batch disjointness), then calls the LLM judge for qualitative evaluation.
-    Final verdict is the worst across both.
+    Deterministic checks (file existence, coverage, limits) are handled by
+    ``validate_map_batches_step`` which always runs before this node.
     """
     config = state["config"]
+    effort_config = state["effort_config"]
     task_files = state["task_files"]
     batches = state["task_file_batches"]
     task_overview = state.get("task_overview", "")
     consolidation_instructions = state.get("consolidation_instructions", "")
 
-    # ── Deterministic checks ──────────────────────────────────────────────────
-    algorithmic_feedbacks = _algorithmic_map_checks(
-        config.workspace_dir, task_files, batches, config.task_files_exclude
-    )
-
-    # ── LLM qualitative judge ─────────────────────────────────────────────────
-    batch_size_constraint = (
-        f"Maximum {config.task_files_batch_size} files per batch"
-        if config.task_files_batch_size
-        else "All files in one batch"
-    )
+    # ── LLM qualitative evaluator ─────────────────────────────────────────────
+    constraints: list[str] = []
+    if effort_config.max_files_per_batch:
+        constraints.append(f"Maximum {effort_config.max_files_per_batch} files per batch")
+    if effort_config.max_batches:
+        constraints.append(f"Maximum {effort_config.max_batches} batches total")
+    batch_size_constraint = "; ".join(constraints) if constraints else "No explicit size constraint"
 
     batches_summary = "\n".join(
         f"  Batch {i + 1}: {len(b.batch_files)} files — {b.batch_instructions or '(no instructions)'}"
@@ -249,12 +130,16 @@ def evaluate_map_batches_agent(state: file_batch_workflow_state) -> dict:
     last_message = result["messages"][-1]
     content = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-    llm_verdict, llm_feedbacks = parse_judge_output(content)
-    del llm_verdict  # verdict is recalculated from merged feedbacks below
+    llm_judge = parse_judge_output(content)
 
-    # ── Merge results ─────────────────────────────────────────────────────────
-    all_feedbacks = algorithmic_feedbacks + llm_feedbacks
-    all_verdicts = [f.type for f in all_feedbacks]
-    final_verdict = min(all_verdicts) if all_verdicts else JudgeVerdict.OK
+    final_verdict = llm_judge.verdict
+    findings = llm_judge.findings
+    if not findings:
+        findings = [JudgeFinding(level=JudgeLevel.OK, title="Batch plan looks good")]
+        final_verdict = JudgeLevel.OK
 
-    return {"map_judge_verdict": final_verdict, "map_judge_feedbacks": all_feedbacks}
+    merged = JudgeVerdict(verdict=final_verdict, findings=findings)
+    return {
+        "map_evaluate_quality_verdict": final_verdict,
+        "map_evaluate_judge_verdict": merged,
+    }

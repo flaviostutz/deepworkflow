@@ -3,31 +3,31 @@ from __future__ import annotations
 from deepworkflow.shared.types import (
     BatchDefinition,
     BatchOutput,
-    JudgeFeedback,
-    JudgeVerdict,
+    EvaluateFeedback,
+    JudgeLevel,
     OnMaxRetriesExceeded,
     WorkflowResult,
     WriteOption,
 )
 
 
-class TestJudgeVerdict:
+class TestEvaluateVerdict:
     def test_ordering(self):
-        assert JudgeVerdict.OK > JudgeVerdict.INFO
-        assert JudgeVerdict.INFO > JudgeVerdict.WARNING
-        assert JudgeVerdict.WARNING > JudgeVerdict.ERROR
+        assert JudgeLevel.OK > JudgeLevel.INFO
+        assert JudgeLevel.INFO > JudgeLevel.WARNING
+        assert JudgeLevel.WARNING > JudgeLevel.ERROR
 
     def test_comparison_with_minimum(self):
         # OK meets any minimum
-        assert JudgeVerdict.OK >= JudgeVerdict.OK
-        assert JudgeVerdict.OK >= JudgeVerdict.WARNING
-        assert JudgeVerdict.OK >= JudgeVerdict.ERROR
+        assert JudgeLevel.OK >= JudgeLevel.OK
+        assert JudgeLevel.OK >= JudgeLevel.WARNING
+        assert JudgeLevel.OK >= JudgeLevel.ERROR
 
         # WARNING does not meet OK minimum
-        assert not (JudgeVerdict.WARNING >= JudgeVerdict.OK)
+        assert not (JudgeLevel.WARNING >= JudgeLevel.OK)
 
         # ERROR does not meet WARNING minimum
-        assert not (JudgeVerdict.ERROR >= JudgeVerdict.WARNING)
+        assert not (JudgeLevel.ERROR >= JudgeLevel.WARNING)
 
 
 class TestWriteOption:
@@ -43,15 +43,15 @@ class TestOnMaxRetriesExceeded:
         assert OnMaxRetriesExceeded.CONTINUE == "continue"
 
 
-class TestJudgeFeedback:
+class TestEvaluateFeedback:
     def test_creation(self):
-        fb = JudgeFeedback(file="test.py", type=JudgeVerdict.WARNING, description="needs fix")
+        fb = EvaluateFeedback(file="test.py", type=JudgeLevel.WARNING, description="needs fix")
         assert fb.file == "test.py"
-        assert fb.type == JudgeVerdict.WARNING
+        assert fb.type == JudgeLevel.WARNING
         assert fb.description == "needs fix"
 
     def test_immutable(self):
-        fb = JudgeFeedback(file="test.py", type=JudgeVerdict.OK, description="good")
+        fb = EvaluateFeedback(file="test.py", type=JudgeLevel.OK, description="good")
         with __import__("pytest").raises(AttributeError):
             fb.file = "other.py"  # type: ignore[misc]
 
@@ -72,14 +72,14 @@ class TestBatchOutput:
     def test_creation(self):
         output = BatchOutput(
             task_files=["a.py", "b.py"],
-            judge_verdict=JudgeVerdict.OK,
-            judge_feedbacks=[],
+            evaluate_quality_verdict=JudgeLevel.OK,
+            evaluate_quality_feedbacks=[],
             files_read=["a.py"],
             files_written=[],
             execute_output="All good",
         )
         assert output.task_files == ["a.py", "b.py"]
-        assert output.judge_verdict == JudgeVerdict.OK
+        assert output.evaluate_quality_verdict == JudgeLevel.OK
         assert output.execute_output == "All good"
 
 

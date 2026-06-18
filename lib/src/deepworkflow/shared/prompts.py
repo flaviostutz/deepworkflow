@@ -11,14 +11,14 @@ WORKFLOW_CONTEXT = """\
 This workflow processes files in batches:
 resolve_globs_step → map_batches_agent → evaluate_map_batches_agent
 → [per-batch: plan_batch_agent → execute_batch_agent → reflect_batch_agent
-→ (evaluate_batch_progress_agent [progress judge] →)* evaluate_batch_quality_agent [quality judge]]
+→ (evaluate_batch_convergence_agent →)* evaluate_batch_quality_agent [evaluate quality]]
 → reduce_consolidate_agent
 
-Two judges operate in the per-batch loop:
-- evaluate_batch_progress_agent (progress judge): lightweight check after each pass — decides
-  whether meaningful progress was made and whether to loop back for another pass (when
+Two evaluators operate in the per-batch loop:
+- evaluate_batch_convergence_agent: lightweight check after each pass — decides
+  whether the batch has converged and whether to loop back for another pass (when
   batch_repeat_max > 0); does NOT evaluate final quality.
-- evaluate_batch_quality_agent (quality judge): final check after all passes complete —
+- evaluate_batch_quality_agent (evaluate quality): final check after all passes complete —
   evaluates the overall quality of the batch result and decides whether to accept or retry."""
 
 TOOL_GUIDANCE_BASE = """\

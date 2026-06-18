@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import _is_glob_pattern, resolve_globs_step
-from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
 from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
 
 
@@ -22,8 +22,9 @@ def _make_config(
         task_instructions="test",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=0,
-        judge_on_max_retries=OnMaxRetriesExceeded.FAIL,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL,
         task_files=task_files,
         task_files_exclude=task_files_exclude,
     )

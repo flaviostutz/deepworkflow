@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import BatchDefinition, BatchOutput, JudgeFeedback, JudgeVerdict
+from deepworkflow.shared.types import BatchDefinition, BatchOutput, EffortConfig, JudgeLevel, JudgeVerdict
 
 
 class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
@@ -11,17 +11,18 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
 
     # Configuration (set once at start)
     config: DeepWorkflowConfig
+    effort_config: EffortConfig
 
     # Phase 1: Map
     task_files: list[str]
     task_file_batches: list[BatchDefinition]
     task_overview: str
     consolidation_instructions: str
-    judge_batch_instructions: str
+    evaluate_quality_batch_instructions: str
 
-    # Map judge
-    map_judge_verdict: JudgeVerdict
-    map_judge_feedbacks: list[JudgeFeedback]
+    # Map evaluate
+    map_evaluate_quality_verdict: JudgeLevel
+    map_evaluate_judge_verdict: JudgeVerdict
     map_retry_count: int
 
     # Iteration tracking
@@ -35,14 +36,15 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     execute_messages: list[Any]
     files_read: list[str]
     files_written: list[str]
-    judge_verdict: JudgeVerdict
-    judge_feedbacks: list[JudgeFeedback]
-    batch_progress: bool
-    batch_progress_output: str
+    evaluate_quality_verdict: JudgeLevel
+    evaluate_quality_judge_verdict: JudgeVerdict
+    batch_convergence_output: str
+    batch_convergence_verdict: JudgeVerdict
 
     # Accumulated results across batch-repeat passes
     cumulative_files_read: list[str]
     cumulative_files_written: list[str]
+    previous_execute_output: str
 
     # Accumulated results
     batch_outputs: list[BatchOutput]

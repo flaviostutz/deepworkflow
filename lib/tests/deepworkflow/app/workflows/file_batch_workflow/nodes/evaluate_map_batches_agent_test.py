@@ -10,11 +10,16 @@ if TYPE_CHECKING:
 
 from conftest import mock_deep_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent import (
-    _algorithmic_map_checks,
     evaluate_map_batches_agent,
 )
-from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import BatchDefinition, JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.types import (
+    BatchDefinition,
+    JudgeLevel,
+    JudgeVerdict,
+    OnMaxRetriesExceeded,
+    WriteOption,
+)
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -27,8 +32,9 @@ def _make_config(workspace_dir: str) -> DeepWorkflowConfig:
         task_instructions="do something",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=1,
-        judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     )
 
 
@@ -41,145 +47,88 @@ def workspace(tmp_path: Path) -> Path:
     return tmp_path
 
 
-class TestAlgorithmicMapChecks:
-    def test_all_good(self, workspace: Path) -> None:
-        batches = [
-            BatchDefinition(batch_files=[str(workspace / "a.py"), str(workspace / "b.py")]),
-            BatchDefinition(batch_files=[str(workspace / "c.py")]),
-        ]
-        task_files = [str(workspace / "a.py"), str(workspace / "b.py"), str(workspace / "c.py")]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        assert feedbacks == []
-
-    def test_non_existent_batch_file(self, workspace: Path) -> None:
-        batches = [BatchDefinition(batch_files=[str(workspace / "ghost.py")])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches)
-        assert len(feedbacks) == 1
-        assert feedbacks[0].type == JudgeVerdict.ERROR
-        assert "ghost.py" in feedbacks[0].description
-        assert "does not exist" in feedbacks[0].description
-
-    def test_task_file_missing_from_batches(self, workspace: Path) -> None:
-        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
-        task_files = [str(workspace / "a.py"), str(workspace / "b.py")]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
-        assert any("b.py" in f.description and "not assigned" in f.description for f in errors)
-
-    def test_task_file_in_multiple_batches(self, workspace: Path) -> None:
-        dup = str(workspace / "a.py")
-        batches = [
-            BatchDefinition(batch_files=[dup]),
-            BatchDefinition(batch_files=[dup, str(workspace / "b.py")]),
-        ]
-        task_files = [str(workspace / "a.py"), str(workspace / "b.py")]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
-        assert any("a.py" in f.description and "2 batches" in f.description for f in errors)
-
-    def test_invented_file_in_batch(self, workspace: Path) -> None:
-        batches = [
-            BatchDefinition(batch_files=[str(workspace / "a.py"), str(workspace / "invented.py")]),
-        ]
-        # invented.py doesn't exist AND isn't in task_files
-        task_files = [str(workspace / "a.py")]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
-        # should be flagged both for non-existence and for not being in task_files
-        descriptions = " ".join(f.description for f in errors)
-        assert "invented.py" in descriptions
-
-    def test_line_range_suffix_stripped(self, workspace: Path) -> None:
-        """Files with :start-end suffixes should resolve to the base file."""
-        file_with_range = str(workspace / "a.py") + ":1-10"
-        batches = [BatchDefinition(batch_files=[file_with_range])]
-        task_files = [file_with_range]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        assert feedbacks == []
-
-    def test_no_task_files_skips_coverage_check(self, workspace: Path) -> None:
-        """When task_files is empty (agent-discovered), only existence is checked."""
-        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches)
-        assert feedbacks == []
-
-
 class TestEvaluateMapBatchesAgent:
-    def test_returns_combined_verdict_with_llm_judge(self, workspace: Path, mocker) -> None:
-        """Test the full evaluate_map_batches_agent including the LLM judge call."""
+    def test_returns_combined_verdict_with_llm_evaluator(self, workspace: Path, mocker) -> None:
+        """Test the full evaluate_map_batches_agent including the LLM evaluator call."""
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent.create_agent",
             {
-                "judge_verdict": "OK",
-                "judge_feedbacks": [{"file": "a.py", "type": "OK", "description": "good", "proposal": ""}],
+                "verdict": "OK",
+                "findings": [{"level": "OK", "title": "good plan", "reason": "", "fix": ""}],
             },
         )
         batches = [BatchDefinition(batch_files=[str(workspace / "a.py")], batch_instructions="do it")]
         state = {
             "config": _make_config(str(workspace)),
+            "effort_config": resolveEffortConfig(5),
             "task_files": [str(workspace / "a.py")],
             "task_file_batches": batches,
             "task_overview": "overview",
             "consolidation_instructions": "summarize",
         }
         result = evaluate_map_batches_agent(state)
-        assert result["map_judge_verdict"] == JudgeVerdict.OK
-        assert len(result["map_judge_feedbacks"]) >= 1
+        assert result["map_evaluate_quality_verdict"] == JudgeLevel.OK
+        judge = result["map_evaluate_judge_verdict"]
+        assert isinstance(judge, JudgeVerdict)
+        assert judge.verdict == JudgeLevel.OK
+        assert len(judge.findings) >= 1
+        assert judge.findings[0].title
 
     def test_worst_verdict_wins_when_algorithmic_check_fails(self, workspace: Path, mocker) -> None:
-        """Algorithmic ERROR + LLM OK → final verdict is ERROR."""
+        """When the LLM returns ERROR the final verdict is ERROR."""
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent.create_agent",
-            {"judge_verdict": "OK", "judge_feedbacks": []},
+            {"verdict": "ERROR", "findings": [{"level": "ERROR", "title": "bad plan", "reason": "x", "fix": ""}]},
         )
-        # Batch references a non-existent file → algorithmic check returns ERROR
-        batches = [BatchDefinition(batch_files=[str(workspace / "ghost.py")], batch_instructions="do it")]
+        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")], batch_instructions="do it")]
         state = {
             "config": _make_config(str(workspace)),
+            "effort_config": resolveEffortConfig(5),
             "task_files": [],
             "task_file_batches": batches,
         }
         result = evaluate_map_batches_agent(state)
-        assert result["map_judge_verdict"] == JudgeVerdict.ERROR
+        assert result["map_evaluate_quality_verdict"] == JudgeLevel.ERROR
+        judge = result["map_evaluate_judge_verdict"]
+        assert isinstance(judge, JudgeVerdict)
+        assert judge.verdict == JudgeLevel.ERROR
+        error_findings = [f for f in judge.findings if f.level == JudgeLevel.ERROR]
+        assert len(error_findings) >= 1
 
-    def test_relative_path_resolved_against_workspace(self, workspace: Path) -> None:
+    def test_relative_path_resolved_against_workspace(self, workspace: Path, mocker) -> None:
+        """Test that relative paths in batches work when workspace is prepended."""
+        mock_deep_agent(
+            mocker,
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent.create_agent",
+            {"verdict": "OK", "findings": [{"level": "OK", "title": "ok", "reason": "", "fix": ""}]},
+        )
         batches = [BatchDefinition(batch_files=["a.py"])]
-        task_files = ["a.py"]
-        feedbacks = _algorithmic_map_checks(str(workspace), task_files, batches)
-        assert feedbacks == []
+        state = {
+            "config": _make_config(str(workspace)),
+            "effort_config": resolveEffortConfig(5),
+            "task_files": ["a.py"],
+            "task_file_batches": batches,
+        }
+        result = evaluate_map_batches_agent(state)
+        assert result["map_evaluate_quality_verdict"] == JudgeLevel.OK
 
-    def test_relative_nonexistent_path(self, workspace: Path) -> None:
+    def test_relative_nonexistent_path(self, workspace: Path, mocker) -> None:
+        """LLM returning OK is fine; existence check is validate_map_batches_step's job."""
+        mock_deep_agent(
+            mocker,
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_agent.create_agent",
+            {"verdict": "OK", "findings": [{"level": "OK", "title": "ok", "reason": "", "fix": ""}]},
+        )
         batches = [BatchDefinition(batch_files=["no_such_file.py"])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches)
-        assert len(feedbacks) == 1
-        assert feedbacks[0].type == JudgeVerdict.ERROR
+        state = {
+            "config": _make_config(str(workspace)),
+            "effort_config": resolveEffortConfig(5),
+            "task_files": [],
+            "task_file_batches": batches,
+        }
+        result = evaluate_map_batches_agent(state)
+        # evaluate_map_batches_agent delegates existence checks to validate_map_batches_step
+        assert result["map_evaluate_quality_verdict"] == JudgeLevel.OK
 
-
-class TestAlgorithmicMapChecksExclude:
-    def test_excluded_absolute_file_in_batch_returns_error(self, workspace: Path) -> None:
-        excl = str(workspace / "a.py")
-        batches = [BatchDefinition(batch_files=[excl])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=[excl])
-        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
-        assert any("a.py" in f.description and "exclude" in f.description for f in errors)
-
-    def test_excluded_glob_pattern_in_batch_returns_error(self, workspace: Path) -> None:
-        batches = [BatchDefinition(batch_files=[str(workspace / "a.py"), str(workspace / "b.py")])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=["*.py"])
-        errors = [f for f in feedbacks if f.type == JudgeVerdict.ERROR]
-        assert len(errors) >= 1
-        assert all("exclude" in f.description for f in errors)
-
-    def test_no_excluded_files_in_batch_passes(self, workspace: Path) -> None:
-        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=["*.txt"])
-        exclude_errors = [f for f in feedbacks if "exclude" in f.description]
-        assert exclude_errors == []
-
-    def test_none_exclude_has_no_effect(self, workspace: Path) -> None:
-        batches = [BatchDefinition(batch_files=[str(workspace / "a.py")])]
-        feedbacks = _algorithmic_map_checks(str(workspace), [], batches, task_files_exclude=None)
-        exclude_errors = [f for f in feedbacks if "exclude" in f.description]
-        assert exclude_errors == []

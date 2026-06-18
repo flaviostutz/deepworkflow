@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 if TYPE_CHECKING:
     import pytest
 
-from deepworkflow.shared.types import BatchOutput, JudgeVerdict, WorkflowLogLevel
+from deepworkflow.shared.types import BatchOutput, JudgeLevel, WorkflowLogLevel
 from deepworkflow.shared.workflow_log import (
     WorkflowStats,
     WorkflowStatsCallback,
@@ -67,9 +67,11 @@ class TestWrapNodeLogLevelInfo:
     def test_pre_lines_printed(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
         pre = MagicMock(return_value=["task: do something"])
-        wrap_node("n", fn, log_pre_fn=pre)(_make_state(WorkflowLogLevel.INFO))
+        state = _make_state(WorkflowLogLevel.INFO)
+        wrap_node("n", fn, log_pre_fn=pre)(state)
         out = capsys.readouterr().out
         assert "  - (in) task: do something" in out
+        pre.assert_called_once_with(state, WorkflowLogLevel.INFO)
 
     def test_post_lines_printed(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={"x": 1})
@@ -78,7 +80,7 @@ class TestWrapNodeLogLevelInfo:
         wrap_node("n", fn, log_post_fn=post)(state)
         out = capsys.readouterr().out
         assert "  - (out) 3 batches; 3 files/batch" in out
-        post.assert_called_once_with(state, {"x": 1})
+        post.assert_called_once_with(state, {"x": 1}, WorkflowLogLevel.INFO)
 
     def test_multiple_post_lines(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
@@ -115,14 +117,14 @@ class TestWrapNodeStats:
         wrap_node("n", fn, stat="quality_retry")(_make_state(WorkflowLogLevel.NONE))
         assert stats.quality_retries == 1
 
-    def test_progress_retry_incremented(self) -> None:
+    def test_convergence_retry_incremented(self) -> None:
         from deepworkflow.shared.workflow_log import WorkflowStats, _stats_var
 
         stats = WorkflowStats()
         _stats_var.set(stats)
         fn = MagicMock(return_value={})
-        wrap_node("n", fn, stat="progress_retry")(_make_state(WorkflowLogLevel.NONE))
-        assert stats.progress_retries == 1
+        wrap_node("n", fn, stat="convergence_retry")(_make_state(WorkflowLogLevel.NONE))
+        assert stats.convergence_retries == 1
 
 
 class TestNewRunStats:
@@ -136,7 +138,7 @@ class TestNewRunStats:
     def test_fresh_stats_zeroed(self) -> None:
         stats = new_run_stats()
         assert stats.quality_retries == 0
-        assert stats.progress_retries == 0
+        assert stats.convergence_retries == 0
         assert stats.model_invocations == 0
 
 
@@ -197,25 +199,33 @@ class TestPrintSummary:
 
         return WorkflowResult(thread_id="t1", output=output, status=status)
 
-    def _make_batch_output(self, verdict: JudgeVerdict = JudgeVerdict.OK) -> BatchOutput:
+    def _make_batch_output(self, verdict: JudgeLevel = JudgeLevel.OK) -> BatchOutput:
         return BatchOutput(
             task_files=["a.py"],
-            judge_verdict=verdict,
-            judge_feedbacks=[],
+            evaluate_quality_verdict=verdict,
+            evaluate_quality_feedbacks=[],
             files_read=["a.py"],
             files_written=["a.py"],
             execute_output="done",
         )
 
-    def _make_config(self, *, judge_skip: bool = False):
+    def _make_effort(self, *, evaluate_quality_skip: bool = False):
+        effort = MagicMock()
+        effort.evaluate_batch_quality_max_retries = 0 if evaluate_quality_skip else 1
+        return effort
+
+    def _make_config(self):
         config = MagicMock()
-        config.judge_min = JudgeVerdict.WARNING
-        config.judge_skip = judge_skip
+        config.evaluate_quality_min = JudgeLevel.WARNING
         return config
 
     def test_prints_summary_header(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
-        final_state = {"batch_outputs": [self._make_batch_output()], "config": self._make_config()}
+        final_state = {
+            "batch_outputs": [self._make_batch_output()],
+            "config": self._make_config(),
+            "effort_config": self._make_effort(),
+        }
         print_summary(stats, final_state, self._make_workflow_result())
         assert "> summary:" in capsys.readouterr().out
 
@@ -227,24 +237,33 @@ class TestPrintSummary:
 
     def test_ok_status_label(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
-        final_state = {"batch_outputs": [self._make_batch_output(JudgeVerdict.OK)], "config": self._make_config()}
+        final_state = {
+            "batch_outputs": [self._make_batch_output(JudgeLevel.OK)],
+            "config": self._make_config(),
+            "effort_config": self._make_effort(),
+        }
         print_summary(stats, final_state, self._make_workflow_result())
         assert "result: OK" in capsys.readouterr().out
 
-    def test_judge_skip_shows_na(self, capsys: pytest.CaptureFixture) -> None:
+    def test_evaluate_quality_skip_shows_na(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
-        final_state = {"batch_outputs": [self._make_batch_output()], "config": self._make_config(judge_skip=True)}
+        final_state = {
+            "batch_outputs": [self._make_batch_output()],
+            "config": self._make_config(),
+            "effort_config": self._make_effort(evaluate_quality_skip=True),
+        }
         print_summary(stats, final_state, self._make_workflow_result())
         assert "N/A" in capsys.readouterr().out
 
     def test_model_tokens_shown(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         stats.tokens_by_model = {"gpt-4o": [1000, 200]}
-        final_state = {"batch_outputs": [], "config": self._make_config()}
+        final_state = {"batch_outputs": [], "config": self._make_config(), "effort_config": self._make_effort()}
         print_summary(stats, final_state, self._make_workflow_result())
         out = capsys.readouterr().out
         assert "models total" in out
-        assert "~US$" in out
+        assert "ref ~US$" in out
+        assert "gpt-5.4" in out
 
     def test_empty_state(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()

@@ -4,8 +4,8 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from conftest import mock_deep_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.reduce_consolidate_agent import reduce_consolidate_agent
-from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import BatchOutput, JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.types import BatchOutput, JudgeLevel, OnMaxRetriesExceeded, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -18,8 +18,9 @@ def _make_config() -> DeepWorkflowConfig:
         task_instructions="do something",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=1,
-        judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     )
 
 
@@ -33,16 +34,16 @@ class TestReduceConsolidateAgent:
         batch_outputs = [
             BatchOutput(
                 task_files=["a.py"],
-                judge_verdict=JudgeVerdict.OK,
-                judge_feedbacks=[],
+                evaluate_quality_verdict=JudgeLevel.OK,
+                evaluate_quality_feedbacks=[],
                 files_read=["a.py"],
                 files_written=[],
                 execute_output="done",
             ),
             BatchOutput(
                 task_files=["b.py"],
-                judge_verdict=JudgeVerdict.WARNING,
-                judge_feedbacks=[],
+                evaluate_quality_verdict=JudgeLevel.WARNING,
+                evaluate_quality_feedbacks=[],
                 files_read=["b.py"],
                 files_written=[],
                 execute_output="partial",

@@ -4,8 +4,14 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from conftest import mock_deep_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent import execute_batch_agent
-from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import BatchDefinition, JudgeFeedback, JudgeVerdict, OnMaxRetriesExceeded, WriteOption
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.types import (
+    BatchDefinition,
+    EvaluateFeedback,
+    JudgeLevel,
+    OnMaxRetriesExceeded,
+    WriteOption,
+)
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -18,8 +24,9 @@ def _make_config() -> DeepWorkflowConfig:
         task_instructions="do something",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=1,
-        judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     )
 
 
@@ -46,13 +53,25 @@ class TestExecuteBatchAgent:
         assert result["execute_output"] == "execution complete"
         assert result["execute_messages"][0].content == "execution complete"
 
-    def test_with_judge_feedback(self, mocker):
+    def test_with_evaluate_quality_feedback(self, mocker):
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent.create_agent",
             "revised execution",
         )
-        feedback = JudgeFeedback(file="a.py", type=JudgeVerdict.WARNING, description="incomplete", proposal="add more")
-        result = execute_batch_agent(_make_state(judge_feedbacks=[feedback]))
+        feedback = EvaluateFeedback(file="a.py", type=JudgeLevel.WARNING, description="incomplete", proposal="add more")
+        result = execute_batch_agent(_make_state(evaluate_quality_feedbacks=[feedback]))
         assert result["execute_output"] == "revised execution"
         assert "execute_messages" in result
+
+    def test_with_previous_execute_output(self, mocker):
+        mock = mock_deep_agent(
+            mocker,
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent.create_agent",
+            "additional work done",
+        )
+        result = execute_batch_agent(_make_state(previous_execute_output="prior pass completed file a.py"))
+        assert result["execute_output"] == "additional work done"
+        system_prompt = mock.call_args.kwargs["system_prompt"]
+        assert "prior pass completed file a.py" in system_prompt
+        assert "ADDITIONAL" in system_prompt

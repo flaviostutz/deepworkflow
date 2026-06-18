@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
 from deepworkflow.shared.runner import run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,7 +26,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         prog="deepworkflow",
-        description="Run a map-plan-execute-judge-reduce workflow on files",
+        description="Run a map-plan-execute-evaluate-reduce workflow on files",
     )
     parser.add_argument(
         "--config", "-c", default="deepworkflow.yml", help="Path to YAML configuration file (default: deepworkflow.yml)"
@@ -111,7 +111,7 @@ def _build_config(
     """Build DeepWorkflowConfig from raw YAML dict."""
     model_factory = _make_model_factory(raw, model_override=model_override)
 
-    judge_min_raw = raw.get("judge_min", "WARNING")
+    evaluate_quality_min_raw = raw.get("evaluate_quality_min", "WARNING")
     task_files_raw = raw.get("task_files")
 
     # CLI flag overrides YAML value; YAML defaults to "info"
@@ -123,16 +123,42 @@ def _build_config(
         task_instructions=raw["task_instructions"],
         model=model_factory,
         workspace_write_option=WriteOption(raw["workspace_write_option"]),
-        judge_max_retries=raw["judge_max_retries"],
-        judge_on_max_retries=OnMaxRetriesExceeded(raw["judge_on_max_retries"]),
+        effort=raw.get("effort", "custom"),
+        effort_config=_build_effort_config(raw),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded(
+            raw.get("evaluate_quality_on_max_retries", OnMaxRetriesExceeded.CONTINUE.value)
+        ),
         task_files=task_files_raw,
-        judge_min=JudgeVerdict[judge_min_raw.upper()],
-        task_files_batch_size=raw.get("task_files_batch_size"),
-        judge_batch_instructions=raw.get("judge_batch_instructions"),
+        evaluate_quality_min=JudgeLevel[evaluate_quality_min_raw.upper()],
+        evaluate_quality_batch_instructions=raw.get("evaluate_quality_batch_instructions"),
         max_failure_retries=raw.get("max_failure_retries", 0),
-        judge_skip=raw.get("judge_skip", False),
         mlflow_tracking_uri=raw.get("mlflow_tracking_uri", "sqlite:///mlflow.db"),
         log_level=log_level,
+    )
+
+
+def _build_effort_config(raw: dict) -> EffortConfig | None:
+    """Build EffortConfig from YAML dict, or return None for auto effort."""
+    if raw.get("effort", "custom") == "auto":
+        return None
+    ec_raw = raw.get("effort_config")
+    if ec_raw is None:
+        # Default: level 5 preset
+        return resolveEffortConfig(5)
+    if isinstance(ec_raw, int):
+        return resolveEffortConfig(ec_raw)
+    if isinstance(ec_raw, dict) and "level" in ec_raw:
+        return resolveEffortConfig(int(ec_raw["level"]))
+    # Full EffortConfig dict
+    return EffortConfig(
+        map_batches_mode=ec_raw.get("map_batches_mode", "agent"),
+        max_batches=ec_raw.get("max_batches"),
+        max_files_per_batch=ec_raw.get("max_files_per_batch"),
+        evaluate_map_max_retries=ec_raw.get("evaluate_map_max_retries", 1),
+        skip_batch_plan=ec_raw.get("skip_batch_plan", False),
+        evaluate_batch_convergence_max_retries=ec_raw.get("evaluate_batch_convergence_max_retries", 0),
+        evaluate_batch_quality_max_retries=ec_raw.get("evaluate_batch_quality_max_retries", 1),
+        consolidate_mode=ec_raw.get("consolidate_mode", "agent"),
     )
 
 

@@ -16,10 +16,10 @@ model:
   api_key: ${DEEPWORKFLOW_API_KEY}
 
 workspace_write_option: "read-only"
-judge_max_retries: 1
-judge_on_max_retries: "continue"
-judge_min: "WARNING"
-judge_skip: false
+evaluate_quality_max_retries: 1
+evaluate_quality_on_max_retries: "continue"
+evaluate_quality_min: "WARNING"
+evaluate_quality_skip: false
 log_level: info
 
 # Omit task_files to let the map agent discover relevant files automatically

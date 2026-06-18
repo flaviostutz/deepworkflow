@@ -26,6 +26,7 @@ _MODEL_PRICES: dict[str, tuple[float, float]] = {
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "gpt-4-turbo": (10.0, 30.0),
+    "gpt-5.4": (15.0, 60.0),
     "o1": (15.0, 60.0),
     "o3-mini": (1.1, 4.4),
     "claude-3-5-sonnet": (3.0, 15.0),
@@ -46,7 +47,7 @@ class WorkflowStats:
 
     start_time: float = field(default_factory=time.time)
     quality_retries: int = 0
-    progress_retries: int = 0
+    convergence_retries: int = 0
     model_invocations: int = 0
     tokens_by_model: dict[str, list[int]] = field(default_factory=dict)
 
@@ -66,23 +67,38 @@ def new_run_stats() -> WorkflowStats:
 # ---------------------------------------------------------------------------
 
 
-def _print_pre_lines(log_pre_fn: Callable[[dict], list[str]], state: dict) -> None:
-    for line in log_pre_fn(state):
+def _print_pre_lines(
+    log_pre_fn: Callable[[dict, WorkflowLogLevel], list[str]],
+    state: dict,
+    log_level: WorkflowLogLevel,
+) -> None:
+    for line in log_pre_fn(state, log_level):
         print(f"  - (in) {line}")  # noqa: T201
 
 
-def _print_post_lines(log_post_fn: Callable[[dict, dict], list[str]], state: dict, result: dict) -> None:
-    for line in log_post_fn(state, result):
-        print(f"  - (out) {line}")  # noqa: T201
+def _print_post_lines(
+    log_post_fn: Callable[[dict, dict, WorkflowLogLevel], list[str]],
+    state: dict,
+    result: dict,
+    log_level: WorkflowLogLevel,
+) -> None:
+    for line in log_post_fn(state, result, log_level):
+        if "\n" in line:
+            parts = line.split("\n")
+            print(f"  - (out) {parts[0]}")  # noqa: T201
+            for part in parts[1:]:
+                print(part)  # noqa: T201
+        else:
+            print(f"  - (out) {line}")  # noqa: T201
 
 
-def wrap_node(  # noqa: PLR0913
+def wrap_node(  # noqa: PLR0913, C901
     name: str,
     fn: Callable,
     *,
     stat: str | None = None,
-    log_pre_fn: Callable[[dict], list[str]] | None = None,
-    log_post_fn: Callable[[dict, dict], list[str]] | None = None,
+    log_pre_fn: Callable[[dict, WorkflowLogLevel], list[str]] | None = None,
+    log_post_fn: Callable[[dict, dict, WorkflowLogLevel], list[str]] | None = None,
     show_batch_index: bool = False,
 ) -> Callable:
     """Return a wrapped node function with start/end logging.
@@ -91,12 +107,12 @@ def wrap_node(  # noqa: PLR0913
         name: Node name used in log lines.
         fn: Original node callable.
         stat: Optional stats counter to increment — ``"quality_retry"`` or
-              ``"progress_retry"``.
-        log_pre_fn: Optional callable ``(state) -> list[str]`` invoked before
-            ``fn``.  Each returned string is printed as ``  > (in) {line}`` at
-            INFO and DEBUG levels.
-        log_post_fn: Optional callable ``(state, result) -> list[str]`` invoked
-            after ``fn``.  Each returned string is printed as
+              ``"convergence_retry"``.
+        log_pre_fn: Optional callable ``(state, log_level) -> list[str]`` invoked
+            before ``fn``.  Each returned string is printed as
+            ``  > (in) {line}`` at INFO and DEBUG levels.
+        log_post_fn: Optional callable ``(state, result, log_level) -> list[str]``
+            invoked after ``fn``.  Each returned string is printed as
             ``  > (out) {line}`` at INFO and DEBUG levels.
         show_batch_index: If ``True``, appends ``[:{current_batch_index}]`` to
             the displayed node name using the value in state.
@@ -111,24 +127,39 @@ def wrap_node(  # noqa: PLR0913
         if stats is not None:
             if stat == "quality_retry":
                 stats.quality_retries += 1
-            elif stat == "progress_retry":
-                stats.progress_retries += 1
+            elif stat == "convergence_retry":
+                stats.convergence_retries += 1
 
         display_name = f"{name}[:{state.get('current_batch_index', '')}]" if show_batch_index else name
 
-        if log_level == WorkflowLogLevel.INFO:
+        if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
             print(f"> {display_name}")  # noqa: T201
             if log_pre_fn is not None:
-                _print_pre_lines(log_pre_fn, state)
+                _print_pre_lines(log_pre_fn, state, log_level)
 
+        def _total_tokens() -> tuple[int, int]:
+            s = _stats_var.get()
+            if s is None:
+                return (0, 0)
+            in_t = sum(v[0] for v in s.tokens_by_model.values())
+            out_t = sum(v[1] for v in s.tokens_by_model.values())
+            return (in_t, out_t)
+
+        tokens_before = _total_tokens()
         t0 = time.monotonic()
         result = fn(state)
         elapsed = time.monotonic() - t0
+        tokens_after = _total_tokens()
 
-        if log_level == WorkflowLogLevel.INFO:
+        if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
             if log_post_fn is not None:
-                _print_post_lines(log_post_fn, state, result)
-            print(f"  - elapsed: {elapsed:.0f}s")  # noqa: T201
+                _print_post_lines(log_post_fn, state, result, log_level)
+            in_delta = tokens_after[0] - tokens_before[0]
+            out_delta = tokens_after[1] - tokens_before[1]
+            token_str = (
+                f" ({_format_tokens(in_delta)}/{_format_tokens(out_delta)} tokens)" if (in_delta or out_delta) else ""
+            )
+            print(f"  - elapsed: {elapsed:.0f}s{token_str}")  # noqa: T201
 
         return result
 
@@ -138,8 +169,8 @@ def wrap_node(  # noqa: PLR0913
 def wrap_route(name: str, fn: Callable) -> Callable:
     """Return a wrapped route function with outcome logging.
 
-    - INFO: prints ``{name} end [{result}]``
-    - DEBUG: also prints ``{name} start`` and adds timing to the end line.
+    - INFO: prints ``{name} [{result}]``
+    - DEBUG: also adds timing to the end line.
 
     """
 
@@ -147,10 +178,13 @@ def wrap_route(name: str, fn: Callable) -> Callable:
         config = state.get("config")
         log_level = config.log_level if config is not None else WorkflowLogLevel.NONE
 
+        t0 = time.monotonic()
         result = fn(state)
+        elapsed = time.monotonic() - t0
 
-        if log_level == WorkflowLogLevel.INFO:
-            print(f"> {name} [{result}]")  # noqa: T201
+        if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
+            suffix = f" ({elapsed:.0f}s)" if log_level == WorkflowLogLevel.DEBUG else ""
+            print(f"> {name} [{result}]{suffix}")  # noqa: T201
 
         return result
 
@@ -244,14 +278,21 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
     if workflow_result.status == "failed":
         result_label = "FAILED"
     elif batch_outputs and config is not None:
-        worst = min((b.judge_verdict for b in batch_outputs), default=None)
-        result_label = "WARNING" if (worst is not None and worst < config.judge_min) else "OK"
+        worst = min((b.evaluate_quality_verdict for b in batch_outputs), default=None)
+        result_label = "WARNING" if (worst is not None and worst < config.evaluate_quality_min) else "OK"
     else:
         result_label = "OK"
 
     # Worst quality verdict label
-    judge_skip = config.judge_skip if config is not None else False
-    quality_judge_str = "N/A" if judge_skip or not batch_outputs else min(b.judge_verdict for b in batch_outputs).name
+    effort_config = final_state.get("effort_config")
+    evaluate_quality_skipped = (
+        (effort_config.evaluate_batch_quality_max_retries == 0) if effort_config is not None else False
+    )
+    evaluate_quality_str = (
+        "N/A"
+        if evaluate_quality_skipped or not batch_outputs
+        else min(b.evaluate_quality_verdict for b in batch_outputs).name
+    )
 
     total_files_read = sum(len(b.files_read) for b in batch_outputs)
     total_files_written = sum(len(b.files_written) for b in batch_outputs)
@@ -259,27 +300,17 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
     total_in = sum(v[0] for v in stats.tokens_by_model.values())
     total_out = sum(v[1] for v in stats.tokens_by_model.values())
 
-    # Cost estimation
-    total_cost: float | None = None
-    if stats.tokens_by_model:
-        cost = 0.0
-        has_price = False
-        for model, (in_tok, out_tok) in stats.tokens_by_model.items():
-            price = _find_model_price(model)
-            if price:
-                cost += (in_tok / 1_000_000) * price[0] + (out_tok / 1_000_000) * price[1]
-                has_price = True
-        if has_price:
-            total_cost = cost
-
-    cost_str = f" (~US$ {total_cost:.2f})" if total_cost is not None else ""
+    # Reference cost using gpt-5.4 pricing (not the actual model used)
+    gpt54_in, gpt54_out = _MODEL_PRICES["gpt-5.4"]
+    ref_cost = (total_in / 1_000_000) * gpt54_in + (total_out / 1_000_000) * gpt54_out
+    cost_str = f" (ref ~US$ {ref_cost:.2f} on gpt-5.4)" if (total_in or total_out) else ""
     lines = [
         "> summary:",
         f"  result: {result_label}",
-        f"  quality judge: {quality_judge_str}",
+        f"  evaluate quality: {evaluate_quality_str}",
         f"  total time: {elapsed:.0f}s",
         f"  total quality retries: {stats.quality_retries}",
-        f"  total progress retries: {stats.progress_retries}",
+        f"  total convergence retries: {stats.convergence_retries}",
         f"  total files read: {total_files_read}",
         f"  total files written: {total_files_written}",
         f"  model invocations: {stats.model_invocations}",

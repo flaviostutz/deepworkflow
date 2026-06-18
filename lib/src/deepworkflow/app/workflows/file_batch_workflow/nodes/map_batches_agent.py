@@ -52,7 +52,7 @@ Agent-specific inputs:
 - files:
 {files_section}
 - batch_size_constraint: {batch_size_constraint}
-{judge_feedback_section}
+{evaluate_quality_feedback_section}
 
 Quality language convention (used throughout this workflow):
 - MUST / REQUIRED / MANDATORY → failure to comply is an ERROR
@@ -115,35 +115,37 @@ _MANDATORY_ADVISORY_KEYWORDS = {"must", "required", "mandatory", "should", "reco
 def map_batches_agent(state: file_batch_workflow_state) -> dict:
     """Plan batch definitions using a read-only agent."""
     config = state["config"]
+    effort_config = state["effort_config"]
     task_files = state["task_files"]
 
-    if config.judge_batch_instructions is not None:
-        words = set(config.judge_batch_instructions.lower().split())
+    if config.evaluate_quality_batch_instructions is not None:
+        words = set(config.evaluate_quality_batch_instructions.lower().split())
         if not words & _MANDATORY_ADVISORY_KEYWORDS:
             return {
                 "error": (
-                    "judge_batch_instructions must contain at least one MANDATORY/ADVISORY keyword "
+                    "evaluate_quality_batch_instructions must contain at least one MANDATORY/ADVISORY keyword "
                     "(MUST, REQUIRED, MANDATORY, SHOULD, RECOMMENDED, COULD, MAY, SUGGESTED) "
                     "to clearly express quality severity. "
                     "Update the instructions to use this language convention."
                 )
             }
 
-    batch_size_constraint = (
-        f"Maximum {config.task_files_batch_size} files per batch"
-        if config.task_files_batch_size
-        else "All files in one batch"
-    )
+    constraints: list[str] = []
+    if effort_config.max_files_per_batch:
+        constraints.append(f"Maximum {effort_config.max_files_per_batch} files per batch")
+    if effort_config.max_batches:
+        constraints.append(f"Maximum {effort_config.max_batches} batches total")
+    batch_size_constraint = "; ".join(constraints) if constraints else "No explicit size constraint"
 
-    judge_feedback_section = ""
-    map_feedbacks = state.get("map_judge_feedbacks")
+    evaluate_quality_feedback_section = ""
+    map_feedbacks = state.get("map_evaluate_quality_feedbacks")
     if map_feedbacks:
         feedback_lines = [
             f"- [{fb.type.name}] {fb.file}: {fb.description}" + (f" | Proposal: {fb.proposal}" if fb.proposal else "")
             for fb in map_feedbacks
         ]
-        judge_feedback_section = "Previous batch plan was rejected by the judge. Address this feedback:\n" + "\n".join(
-            feedback_lines
+        evaluate_quality_feedback_section = (
+            "Previous batch plan was rejected by evaluate_quality. Address this feedback:\n" + "\n".join(feedback_lines)
         )
 
     if task_files:
@@ -172,7 +174,7 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
             task_instructions=config.task_instructions,
             files_section=files_section,
             batch_size_constraint=batch_size_constraint,
-            judge_feedback_section=judge_feedback_section,
+            evaluate_quality_feedback_section=evaluate_quality_feedback_section,
         ),
         steps=_STEPS_TEMPLATE.format(discover_or_group=discover_or_group),
         guardrails=_GUARDRAILS,
@@ -195,14 +197,14 @@ def map_batches_agent(state: file_batch_workflow_state) -> dict:
     if parsed.get("error"):
         return parsed
 
-    parsed["judge_batch_instructions"] = _derive_judge_instructions(config)
+    parsed["evaluate_quality_batch_instructions"] = _derive_evaluate_quality_instructions(config)
     return parsed
 
 
-def _derive_judge_instructions(config) -> str:  # type: ignore[misc]
-    """Return judge_batch_instructions from config or derive them via LLM."""
-    if config.judge_batch_instructions is not None:
-        return config.judge_batch_instructions
+def _derive_evaluate_quality_instructions(config) -> str:  # type: ignore[misc]
+    """Return evaluate_quality_batch_instructions from config or derive them via LLM."""
+    if config.evaluate_quality_batch_instructions is not None:
+        return config.evaluate_quality_batch_instructions
 
     model = config.model("map_batches_agent")
     messages = [

@@ -11,7 +11,7 @@ import keyring
 import mlflow
 
 from deepworkflow import DeepWorkflowConfig, run_workflow
-from deepworkflow.shared.types import JudgeVerdict, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
+from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded, WorkflowLogLevel, WriteOption
 
 mlflow.langchain.autolog()
 
@@ -54,11 +54,12 @@ CONFIG = DeepWorkflowConfig(
     task_instructions="Analyze each file and report any potential bugs or issues.",
     model=_model_factory,
     workspace_write_option=WriteOption.READ_ONLY,
+    batch_repeat_max=2,
     task_files=["**/*.py"],
-    judge_min=JudgeVerdict.WARNING,
-    judge_max_retries=1,
-    judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-    log_level=WorkflowLogLevel.INFO,
+    evaluate_quality_min=JudgeLevel.WARNING,
+    evaluate_quality_max_retries=1,
+    evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+    log_level=WorkflowLogLevel.DEBUG,
 )
 
 
@@ -85,7 +86,7 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="simple-eval"):
         mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("judge_min", CONFIG.judge_min.name)
+        mlflow.log_param("evaluate_quality_min", CONFIG.evaluate_quality_min.name)
         mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
 
         try:

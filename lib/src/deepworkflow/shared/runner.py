@@ -81,17 +81,17 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
 
     invoke_config: dict = {"configurable": {"thread_id": resolved_thread_id}}
 
-    # Set up stats + callback for INFO / TRACE levels
+    # Set up stats + callback for INFO / DEBUG / TRACE levels
     stats = None
-    if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.TRACE):
+    if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG, WorkflowLogLevel.TRACE):
         stats = new_run_stats()
         invoke_config["callbacks"] = [WorkflowStatsCallback(log_level)]
 
     nested = mlflow.active_run() is not None
     with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}", nested=nested):
         if config is not None:
-            mlflow.log_param("judge_min", config.judge_min.name)
-            mlflow.log_param("judge_max_retries", config.judge_max_retries)
+            mlflow.log_param("evaluate_quality_min", config.evaluate_quality_min.name)
+            mlflow.log_param("effort", config.effort)
             mlflow.log_param("write_option", config.workspace_write_option.value)
 
         if log_level != WorkflowLogLevel.NONE:
@@ -124,7 +124,7 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
         if log_level != WorkflowLogLevel.NONE:
             print("END")  # noqa: T201
 
-        if stats is not None and log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.TRACE):
+        if stats is not None and log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG, WorkflowLogLevel.TRACE):
             print_summary(stats, result, workflow_result)
 
         return workflow_result

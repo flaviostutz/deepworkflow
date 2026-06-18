@@ -42,8 +42,8 @@ def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
         outputs_summary.append(
             f"--- Batch {i + 1} ---\n"
             f"Files: {', '.join(output.task_files)}\n"
-            f"Verdict: {output.judge_verdict.name}\n"
-            f"Execute output: {output.execute_output[:500]}\n"
+            f"Verdict: {output.evaluate_quality_verdict.name}\n"
+            f"Execute output: {output.execute_output[:5000]}\n"
         )
 
     prompt = build_agent_prompt(

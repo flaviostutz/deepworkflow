@@ -10,7 +10,7 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent impo
     _parse_map_output,
     map_batches_agent,
 )
-from deepworkflow.shared.config import DeepWorkflowConfig
+from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
 from deepworkflow.shared.types import OnMaxRetriesExceeded, WriteOption
 
 
@@ -18,64 +18,65 @@ def _mock_model(_agent_name: str) -> FakeListChatModel:
     return FakeListChatModel(responses=[""])
 
 
-def _make_state(judge_batch_instructions: str | None = None) -> dict:
+def _make_state(evaluate_quality_batch_instructions: str | None = None) -> dict:
     config = DeepWorkflowConfig(
         workspace_dir="/tmp",
         task_instructions="Do something MUST be done",
         model=_mock_model,
         workspace_write_option=WriteOption.READ_ONLY,
-        judge_max_retries=1,
-        judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-        judge_batch_instructions=judge_batch_instructions,
+        effort="custom",
+        effort_config=resolveEffortConfig(5),
+        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+        evaluate_quality_batch_instructions=evaluate_quality_batch_instructions,
     )
-    return {"config": config, "task_files": ["a.py"]}
+    return {"config": config, "task_files": ["a.py"], "effort_config": resolveEffortConfig(5)}
 
 
 class TestMapBatchesAgentJudgeInstructionsValidation:
-    def test_none_judge_instructions_skips_validation(self, mocker):
+    def test_none_evaluate_quality_instructions_skips_validation(self, mocker):
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent.create_agent",
             {"task_overview": "x", "consolidation_instructions": "y", "batches": [{"batch_files": ["a.py"]}]},
         )
         mocker.patch(
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_evaluate_quality_instructions",
             return_value=DEFAULT_JUDGE_BATCH_INSTRUCTIONS,
         )
-        result = map_batches_agent(_make_state(judge_batch_instructions=None))
+        result = map_batches_agent(_make_state(evaluate_quality_batch_instructions=None))
         assert "error" not in result
-        assert result["judge_batch_instructions"] == DEFAULT_JUDGE_BATCH_INSTRUCTIONS
+        assert result["evaluate_quality_batch_instructions"] == DEFAULT_JUDGE_BATCH_INSTRUCTIONS
 
-    def test_judge_instructions_with_must_passes(self, mocker):
+    def test_evaluate_quality_instructions_with_must_passes(self, mocker):
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent.create_agent",
             {"task_overview": "x", "consolidation_instructions": "y", "batches": [{"batch_files": ["a.py"]}]},
         )
         mocker.patch(
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_evaluate_quality_instructions",
             return_value="Output MUST be valid JSON.",
         )
-        result = map_batches_agent(_make_state(judge_batch_instructions="Output MUST be valid JSON."))
+        result = map_batches_agent(_make_state(evaluate_quality_batch_instructions="Output MUST be valid JSON."))
         assert "error" not in result
-        assert result["judge_batch_instructions"] == "Output MUST be valid JSON."
+        assert result["evaluate_quality_batch_instructions"] == "Output MUST be valid JSON."
 
-    def test_judge_instructions_without_keywords_fails(self):
-        result = map_batches_agent(_make_state(judge_batch_instructions="Check the output is correct."))
+    def test_evaluate_quality_instructions_without_keywords_fails(self):
+        result = map_batches_agent(_make_state(evaluate_quality_batch_instructions="Check the output is correct."))
         assert "error" in result
         assert "MANDATORY" in result["error"] or "MUST" in result["error"]
 
-    def test_judge_instructions_with_should_passes(self, mocker):
+    def test_evaluate_quality_instructions_with_should_passes(self, mocker):
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent.create_agent",
             {"task_overview": "x", "consolidation_instructions": "y", "batches": [{"batch_files": ["a.py"]}]},
         )
         mocker.patch(
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_evaluate_quality_instructions",
             return_value="Output should be well-formatted.",
         )
-        result = map_batches_agent(_make_state(judge_batch_instructions="Output should be well-formatted."))
+        result = map_batches_agent(_make_state(evaluate_quality_batch_instructions="Output should be well-formatted."))
         assert "error" not in result
 
 
@@ -150,7 +151,7 @@ class TestMapBatchesAgentExcludeSection:
             side_effect=capture_create_agent,
         )
         mocker.patch(
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_evaluate_quality_instructions",
             return_value=DEFAULT_JUDGE_BATCH_INSTRUCTIONS,
         )
 
@@ -159,11 +160,12 @@ class TestMapBatchesAgentExcludeSection:
             task_instructions="Do something MUST be done",
             model=_mock_model,
             workspace_write_option=WriteOption.READ_ONLY,
-            judge_max_retries=1,
-            judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort="custom",
+            effort_config=resolveEffortConfig(5),
+            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
             task_files_exclude=["*.lock", "**/__pycache__/**"],
         )
-        state = {"config": config, "task_files": []}
+        state = {"config": config, "task_files": [], "effort_config": resolveEffortConfig(5)}
         map_batches_agent(state)
 
         assert len(captured_prompts) == 1
@@ -193,7 +195,7 @@ class TestMapBatchesAgentExcludeSection:
             side_effect=capture_create_agent,
         )
         mocker.patch(
-            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_judge_instructions",
+            "deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent._derive_evaluate_quality_instructions",
             return_value=DEFAULT_JUDGE_BATCH_INSTRUCTIONS,
         )
 
@@ -202,11 +204,12 @@ class TestMapBatchesAgentExcludeSection:
             task_instructions="Do something MUST be done",
             model=_mock_model,
             workspace_write_option=WriteOption.READ_ONLY,
-            judge_max_retries=1,
-            judge_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            effort="custom",
+            effort_config=resolveEffortConfig(5),
+            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
             task_files_exclude=["*.lock"],
         )
-        state = {"config": config, "task_files": ["a.py"]}
+        state = {"config": config, "task_files": ["a.py"], "effort_config": resolveEffortConfig(5)}
         map_batches_agent(state)
 
         assert len(captured_prompts) == 1
