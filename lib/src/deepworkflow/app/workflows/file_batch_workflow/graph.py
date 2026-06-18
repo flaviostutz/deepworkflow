@@ -339,4 +339,4 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
 
 
 # Default workflow instance (without checkpointer)
-file_batch_workflow = build_file_batch_workflow()
+graph = build_file_batch_workflow()
