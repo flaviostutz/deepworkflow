@@ -131,4 +131,3 @@ class TestEvaluateMapBatchesAgent:
         result = evaluate_map_batches_agent(state)
         # evaluate_map_batches_agent delegates existence checks to validate_map_batches_step
         assert result["map_evaluate_quality_verdict"] == JudgeLevel.OK
-
