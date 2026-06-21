@@ -5,9 +5,9 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from conftest import mock_deep_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent import execute_batch_agent
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import EffortConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
+    EffortConfig,
     EvaluateFeedback,
     JudgeLevel,
     WriteOption,

@@ -29,6 +29,7 @@ class TestSetEffortConfigStep:
         config = _make_config(level=3)
         result = set_effort_config_step({"config": config})
         from deepworkflow.shared.config import resolveEffortConfig
+
         expected = resolveEffortConfig(3)
         assert result["effort_config"] == expected
 

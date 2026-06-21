@@ -1,6 +1,6 @@
 # Eval Report: eval-simple
 
-**Date:** 2026-06-18
+**Date:** 2026-06-21
 **Dataset:** dataset/
 **Script:** eval-simple.py
 **Thresholds:** similarity ≥ 0.5
@@ -26,4 +26,4 @@
 ## Notes
 
 - Similarity score: 0.0000 (threshold: 0.5)
-- MLflow run ID: 2881bd537ae5469a86ebf7893da92ef3 — view with `mlflow ui`
+- MLflow run ID: 3a31b2f2b67e46d1806adc45b4e07003 — view with `mlflow ui`

@@ -9,7 +9,9 @@ from deepworkflow.app.workflows.file_batch_workflow.graph_log import (
     _log_evaluate_convergence_post,
     _log_evaluate_map_batches_post,
     _log_evaluate_quality_post,
+    _log_evaluate_quality_pre,
     _log_execute_batch_post,
+    _log_execute_batch_pre,
     _log_map_batches_post,
     _log_map_batches_pre,
     _log_plan_batch_post,
@@ -149,6 +151,7 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
         wrap_node(
             "execute_batch_agent",
             execute_batch_agent,
+            log_pre_fn=_log_execute_batch_pre,
             log_post_fn=_log_execute_batch_post,
             show_batch_index=True,
         ),
@@ -180,6 +183,7 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
         wrap_node(
             "evaluate_batch_quality_agent",
             evaluate_batch_quality_agent,
+            log_pre_fn=_log_evaluate_quality_pre,
             log_post_fn=_log_evaluate_quality_post,
             show_batch_index=True,
         ),
@@ -188,7 +192,7 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_node("record_output_step", wrap_node("record_output_step", record_output_step))
     builder.add_node(
         "increment_retry_step",
-        wrap_node("increment_retry_step", increment_retry_step, stat="quality_retry"),
+        wrap_node("increment_retry_step", increment_retry_step),
     )
     builder.add_node(
         "check_max_retries_policy_step",

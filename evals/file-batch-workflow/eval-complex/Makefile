@@ -11,15 +11,15 @@ setup-secrets:
 	$(MAKE) -C ../../.. setup-secrets
 
 eval: cleanup
-	mise exec -- uv run --project ../../../lib python eval-complex.py
+	mise exec -- uv run --project ../../../lib python eval.py
 	@echo ""
-	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5004)"
+	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5101)"
 
 run: cleanup
-	mise exec -- uv run --project ../../../lib python eval-complex.py || true
+	mise exec -- uv run --project ../../../lib python eval.py || true
 	@echo ""
-	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5004)"
+	@echo "To inspect MLflow traces, run: make dev-mlflow (opens http://localhost:5101)"
 
 dev-mlflow:
-	@echo "MLflow UI starting at http://localhost:5004"
-	mise exec -- mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5004
+	@echo "MLflow UI starting at http://localhost:5101"
+	mise exec -- mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5101

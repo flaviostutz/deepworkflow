@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.validate_map_batches_step import validate_map_batches_step
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import BatchDefinition, EffortConfig, EffortConfig, WriteOption
+from deepworkflow.shared.types import BatchDefinition, EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:

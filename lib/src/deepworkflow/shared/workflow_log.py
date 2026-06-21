@@ -92,7 +92,10 @@ def _print_pre_lines(
     log_level: WorkflowLogLevel,
 ) -> None:
     for line in log_pre_fn(state, log_level):
-        print(f"  - (in) {line}")  # noqa: T201
+        if line.startswith(">>"):
+            print(f"  {line}")  # noqa: T201
+        else:
+            print(f"  - (in) {line}")  # noqa: T201
 
 
 def _print_post_lines(
@@ -149,7 +152,11 @@ def wrap_node(  # noqa: PLR0913, C901
             elif stat == "convergence_retry":
                 stats.convergence_retries += 1
 
-        display_name = f"{name}[{state.get('current_batch_index', '')}:{state.get('retry_count', 0)}]" if show_batch_index else name
+        display_name = (
+            f"{name}[{state.get('current_batch_index', '')}:{state.get('batch_repeat_count', 0)}:{state.get('retry_count', 0)}]"
+            if show_batch_index
+            else name
+        )
 
         if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
             print(f"> {display_name}")  # noqa: T201

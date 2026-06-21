@@ -97,31 +97,45 @@ def _log_evaluate_map_batches_post(state: dict, result: dict, log_level: Workflo
 def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
     idx = state.get("current_batch_index", 0)
     batches = state.get("task_file_batches") or []
-    lines = []
-
-    # Evaluation feedback — only when retrying
     retry_count = state.get("retry_count", 0)
-    if retry_count > 0:
-        judge_verdict = state.get("evaluate_quality_judge_verdict")
-        if judge_verdict is not None:
-            for f in judge_verdict.findings:
-                if log_level != WorkflowLogLevel.DEBUG and f.level.name == "OK":
-                    continue
-                line = f"feedback [{f.level.name}] {f.title}"
-                if f.reason:
-                    line += f": {f.reason}"
-                lines.append(line)
+    batch_repeat_count = state.get("batch_repeat_count", 0)
+    config = state.get("config")
+
+    total = len(batches)
+    loop_count = retry_count + batch_repeat_count
+    loop_suffix = f" - loop {loop_count}" if loop_count > 0 else ""
+    lines = [f">> PLAN BATCH {idx + 1}/{total}{loop_suffix}"]
+
+    task_instructions = config.task_instructions if config is not None else ""
+    lines.append(f"task instructions: {_truncate(task_instructions, 20)}")
+
+    task_overview = state.get("task_overview", "")
+    lines.append(f"task overview: {_truncate(task_overview or '', 20)}")
 
     instructions = batches[idx].batch_instructions if idx < len(batches) else ""
-    text = (instructions or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(instructions or "", 30)
-    lines.append(f"batch instructions: {text}")
+    inst_text = (instructions or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(instructions or "", 20)
+    lines.append(f"batch instructions: {inst_text}")
+
+    judge_verdict = state.get("evaluate_quality_judge_verdict")
+    if retry_count > 0 and judge_verdict is not None and judge_verdict.findings:
+        feedback = "; ".join(f"{f.level.name}: {f.title}" for f in judge_verdict.findings if f.level.name != "OK")
+        fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
+        lines.append(f"evaluation feedback: {fb_text}")
+
+    previous_execute_output = state.get("previous_execute_output", "")
+    if previous_execute_output:
+        prev_text = (
+            previous_execute_output if log_level == WorkflowLogLevel.DEBUG else _truncate(previous_execute_output, 20)
+        )
+        lines.append(f"previous output: {prev_text}")
+
     return lines
 
 
 def _log_plan_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     plan = result.get("plan_output", "")
-    text = plan if log_level == WorkflowLogLevel.DEBUG else _truncate(plan, 30)
-    return [f"plan: {text}"]
+    text = _truncate(plan, 20)
+    return [f"output: {text}"]
 
 
 # analyze_task_effort_agent
@@ -137,9 +151,50 @@ def _log_analyze_effort_post(state: dict, result: dict, log_level: WorkflowLogLe
 
 
 # execute_batch_agent
+def _log_execute_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
+    idx = state.get("current_batch_index", 0)
+    batches = state.get("task_file_batches") or []
+    retry_count = state.get("retry_count", 0)
+    batch_repeat_count = state.get("batch_repeat_count", 0)
+    config = state.get("config")
+
+    total = len(batches)
+    loop_count = retry_count + batch_repeat_count
+    loop_suffix = f" - loop {loop_count}" if loop_count > 0 else ""
+    lines = [f">> EXECUTE BATCH {idx + 1}/{total}{loop_suffix}"]
+
+    task_instructions = config.task_instructions if config is not None else ""
+    lines.append(f"task instructions: {_truncate(task_instructions, 20)}")
+
+    task_overview = state.get("task_overview", "")
+    lines.append(f"task overview: {_truncate(task_overview or '', 20)}")
+
+    instructions = batches[idx].batch_instructions if idx < len(batches) else ""
+    lines.append(f"batch instructions: {_truncate(instructions or '', 20)}")
+
+    plan_output = state.get("plan_output", "")
+    plan_text = (plan_output or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(plan_output or "", 20)
+    lines.append(f"batch plan: {plan_text}")
+
+    judge_verdict = state.get("evaluate_quality_judge_verdict")
+    if retry_count > 0 and judge_verdict is not None and judge_verdict.findings:
+        feedback = "; ".join(f"{f.level.name}: {f.title}" for f in judge_verdict.findings if f.level.name != "OK")
+        fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
+        lines.append(f"evaluation feedback: {fb_text}")
+
+    previous_execute_output = state.get("previous_execute_output", "")
+    if previous_execute_output:
+        prev_text = (
+            previous_execute_output if log_level == WorkflowLogLevel.DEBUG else _truncate(previous_execute_output, 20)
+        )
+        lines.append(f"previous output: {prev_text}")
+
+    return lines
+
+
 def _log_execute_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     output = result.get("execute_output", "")
-    text = output if log_level == WorkflowLogLevel.DEBUG else _truncate(output, 30)
+    text = output if log_level == WorkflowLogLevel.DEBUG else _truncate(output, 20)
     return [f"output: {text}"]
 
 
@@ -161,28 +216,32 @@ def _log_evaluate_convergence_post(state: dict, result: dict, log_level: Workflo
 
 
 # evaluate_batch_quality_agent
+def _log_evaluate_quality_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    config = state.get("config")
+    effort_config = state.get("effort_config")
+    instructions = ""
+    if effort_config is not None and effort_config.evaluate_quality_batch_instructions:
+        instructions = effort_config.evaluate_quality_batch_instructions
+    elif config is not None:
+        instructions = getattr(config.effort, "evaluate_quality_batch_instructions", "") or ""
+    return [f"evaluation instructions: {_truncate(instructions, 20)}"]
+
+
 def _log_evaluate_quality_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     verdict = result.get("evaluate_quality_judge_verdict")
     if verdict is None:
         raw_verdict = result.get("evaluate_quality_verdict")
-        return [raw_verdict.name if raw_verdict is not None else "unknown"]
+        return [f"result: {raw_verdict.name if raw_verdict is not None else 'unknown'}"]
 
-    lines = []
+    summary = _finding_summary(verdict)
+    lines = [f"result: {verdict.verdict.name} - {summary}"]
     for f in verdict.findings:
         if log_level != WorkflowLogLevel.DEBUG and f.level.name == "OK":
             continue
         line = f"[{f.level.name}] {f.title}"
         if f.reason:
-            line += f" — {f.reason}"
+            line += f" — {_truncate(f.reason, 20)}"
         lines.append(line)
-        if f.details:
-            details_text = f.details if log_level == WorkflowLogLevel.DEBUG else _truncate(f.details, 30)
-            lines.append(f"  details: {details_text}")
-        if f.fix:
-            fix_text = f.fix if log_level == WorkflowLogLevel.DEBUG else _truncate(f.fix, 20)
-            lines.append(f"  fix: {fix_text}")
-    if not lines:
-        lines.append("OK")
     return lines
 
 

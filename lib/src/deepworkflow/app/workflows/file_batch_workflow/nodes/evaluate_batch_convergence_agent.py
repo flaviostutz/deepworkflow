@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from deepworkflow.adapters.connectors.deepagents_connector import bind_json_mode
 from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_judge_output
 from deepworkflow.shared.prompts import STANDARD_USER_MESSAGE, build_agent_prompt
 from deepworkflow.shared.types import JudgeFinding, JudgeLevel, JudgeVerdict
@@ -69,6 +70,7 @@ _GUARDRAILS = """\
 - No tools are available for this agent. All reasoning is done in-context."""
 
 _OUTPUT_FORMAT = """\
+Respond with a JSON object in the following format:
 {{
   "verdict": "OK|WARNING",
   "findings": [
@@ -115,7 +117,7 @@ def evaluate_batch_convergence_agent(state: file_batch_workflow_state) -> dict:
         output_format=_OUTPUT_FORMAT,
     )
 
-    model = config.model("evaluate_batch_convergence_agent")
+    model = bind_json_mode(config.model("evaluate_batch_convergence_agent"))
     messages = [SystemMessage(content=system_prompt), *execute_messages, HumanMessage(content=STANDARD_USER_MESSAGE)]
     response = model.invoke(messages)
     content = response.content if hasattr(response, "content") else str(response)

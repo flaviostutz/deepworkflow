@@ -11,8 +11,7 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_agent impo
     map_batches_agent,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import EffortConfig
-from deepworkflow.shared.types import WriteOption
+from deepworkflow.shared.types import EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:
@@ -30,6 +29,7 @@ def _make_state(evaluate_quality_batch_instructions: str | None = None) -> dict:
     effort = resolveEffortConfig(5)
     if evaluate_quality_batch_instructions is not None:
         from dataclasses import replace
+
         effort = replace(effort, evaluate_quality_batch_instructions=evaluate_quality_batch_instructions)
     return {"config": config, "task_files": ["a.py"], "effort_config": effort}
 

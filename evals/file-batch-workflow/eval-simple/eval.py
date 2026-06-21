@@ -52,33 +52,34 @@ def _model_factory(agent_name: str):  # noqa: ARG001
     )
 
 
-CONFIG = DeepWorkflowConfig(
-    workspace_dir=EVAL_WORKSPACE_DIR,
-    task_instructions="Analyze each file and report any potential bugs or issues.",
-    model=_model_factory,
-    workspace_write_option=WriteOption.READ_ONLY,
-    effort=EffortConfig(
-        map_batches_mode="static",
-        max_batches=1,
-        max_files_per_batch=None,
-        evaluate_map_max_retries=0,
-        skip_batch_plan=False,
-        evaluate_batch_convergence_max_retries=3,
-        evaluate_batch_quality_max_retries=0,
-        consolidate_mode="static",
-        evaluate_quality_min=JudgeLevel.WARNING,
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-        evaluate_quality_batch_instructions=None,
-    ),
-    task_files=["**/*.py"],
-    log_level=WorkflowLogLevel.DEBUG,
-)
-
-
-def _load_expected_output() -> str:
-    """Load the expected output from the JSONL dataset."""
+def _load_dataset() -> tuple[str, str]:
+    """Load task_instructions and expected output from the JSONL dataset."""
     record = json.loads(EVAL_EXPECTED_OUTPUT_PATH.read_text().strip().splitlines()[0])
-    return record["expected_output"]
+    return record["input"]["task_instructions"], record["expected_output"]
+
+
+def _build_config(task_instructions: str) -> DeepWorkflowConfig:
+    return DeepWorkflowConfig(
+        workspace_dir=EVAL_WORKSPACE_DIR,
+        task_instructions=task_instructions,
+        model=_model_factory,
+        workspace_write_option=WriteOption.READ_ONLY,
+        effort=EffortConfig(
+            map_batches_mode="static",
+            max_batches=1,
+            max_files_per_batch=None,
+            evaluate_map_max_retries=0,
+            skip_batch_plan=False,
+            evaluate_batch_convergence_max_retries=5,
+            evaluate_batch_quality_max_retries=5,
+            consolidate_mode="static",
+            evaluate_quality_min=JudgeLevel.INFO,
+            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            evaluate_quality_batch_instructions=None,
+        ),
+        task_files=["**/*.py"],
+        log_level=WorkflowLogLevel.DEBUG,
+    )
 
 
 def _keyword_similarity(actual: str, expected: str) -> float:
@@ -144,24 +145,25 @@ def _write_eval_report(run: Any, similarity: float, passed: bool) -> None:  # no
         f"- MLflow run ID: {run_id} — view with `mlflow ui`",
         "",
     ]
-    Path("eval-simple-report.md").write_text("\n".join(lines), encoding="utf-8")
+    Path("report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def run_eval() -> None:
     """Run the simple evaluation slice."""
     mlflow.set_experiment("deepworkflow-simple")
-    expected_output = _load_expected_output()
+    task_instructions, expected_output = _load_dataset()
+    config = _build_config(task_instructions)
 
     similarity = 0.0
     passed = False
 
     with mlflow.start_run(run_name="simple-eval") as run:
-        mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("evaluate_quality_min", CONFIG.effort.evaluate_quality_min.name)
-        mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
+        mlflow.log_param("task_instructions", config.task_instructions)
+        mlflow.log_param("evaluate_quality_min", config.effort.evaluate_quality_min.name)
+        mlflow.log_param("write_option", config.workspace_write_option.value)
 
         try:
-            result = run_workflow(CONFIG, clone_workspace_dir=EVAL_CLONE_DIR)
+            result = run_workflow(config, clone_workspace_dir=EVAL_CLONE_DIR)
             similarity = _keyword_similarity(result.output, expected_output)
             passed = similarity >= EVAL_MIN_SIMILARITY
             mlflow.log_metric("success", 1)

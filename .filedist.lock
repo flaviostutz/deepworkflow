@@ -1,6 +1,6 @@
 version: 1
 packages:
-  git:https://github.com/flaviostutz/agentme@main: ceda94dce4e4
+  git:https://github.com/flaviostutz/agentme@main: 47198850c67e
   xdrs-core@0.30.0: 0.30.0
 sets:
   - package: git:https://github.com/flaviostutz/agentme@main
@@ -41,7 +41,6 @@ files:
     - .xdrs/agentme/edrs/application/015-cli-tool-standards.md|https://github.com/flaviostutz/agentme|50703f8d51a4|file|d267213c2ef1|0
     - .xdrs/agentme/edrs/application/020-ai-agents-quality-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|b05454a80521|0
     - .xdrs/agentme/edrs/application/010-golang-project-tooling.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|9242df8fb773|0
-    - .xdrs/agentme/edrs/application/018-ai-llm-development-standards.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|3610f826f156|0
     - .xdrs/agentme/edrs/application/025-ai-agent-xdrs-knowledge-layer.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|1f494fd2f614|0
     - .xdrs/agentme/edrs/index.md|https://github.com/flaviostutz/agentme|ee49e4a6eeb4|file|43ae7fd37f6a|0
     - .xdrs/agentme/edrs/principles/002-coding-best-practices.md|https://github.com/flaviostutz/agentme|3e65bb96d386|file|2de3e660caed|0
@@ -57,7 +56,6 @@ files:
     - .xdrs/_core/adrs/principles/skills/008-write-xdrs-doc/SKILL.md|xdrs-core|0.30.0|file|58d5e4175583|0
     - .xdrs/_core/index.md|xdrs-core|0.30.0|file|15cb8156db83|0
     - .xdrs/agentme/edrs/application/skills/004-select-relevant-xdrs/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|6a1d9c0475cc|0
-    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|e987f493ecf7|0
     - .xdrs/agentme/edrs/application/021-ai-workflow-development-standards.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|30dfe123af67|0
     - .xdrs/agentme/edrs/application/skills/001-create-javascript-project/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|3b56adc85a84|0
     - .xdrs/agentme/edrs/application/skills/003-create-golang-project/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|9c0ebcfc31b6|0
@@ -65,7 +63,9 @@ files:
     - .xdrs/agentme/edrs/devops/skills/002-monorepo-setup/SKILL.md|https://github.com/flaviostutz/agentme|965eca44e4bf|file|dedda5aac579|0
     - .agents/skills/001-review|xdrs-core|0.30.0|symlink|18c5f3a037d4|0
     - .agents/skills/008-write-xdrs-doc|xdrs-core|0.30.0|symlink|c3a23ff52f24|0
-    - .xdrs/agentme/edrs/application/028-ai-eval-standards.md|https://github.com/flaviostutz/agentme|7d474feb666b|file|45007c10fdbc|0
     - .xdrs/agentme/edrs/principles/007-project-quality-standards.md|https://github.com/flaviostutz/agentme|ceda94dce4e4|file|85b50fcb296d|0
-checksum: 9422a8100742
+    - .xdrs/agentme/edrs/application/018-ai-llm-development-standards.md|https://github.com/flaviostutz/agentme|47198850c67e|file|237d6f545da5|0
+    - .xdrs/agentme/edrs/application/019-ai-agents-development-standards.md|https://github.com/flaviostutz/agentme|47198850c67e|file|20feedd6e1d9|0
+    - .xdrs/agentme/edrs/application/028-ai-eval-standards.md|https://github.com/flaviostutz/agentme|47198850c67e|file|ab4957086a7e|0
+checksum: 322fd51e0512
 

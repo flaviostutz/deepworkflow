@@ -9,9 +9,9 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_quality
     evaluate_batch_quality_agent,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import EffortConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
+    EffortConfig,
     JudgeLevel,
     JudgeVerdict,
     WriteOption,

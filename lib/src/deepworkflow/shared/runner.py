@@ -92,7 +92,10 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
     nested = mlflow.active_run() is not None
     with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}", nested=nested):
         if config is not None:
-            mlflow.log_param("evaluate_quality_min", config.effort.evaluate_quality_min.name if config.effort.evaluate_quality_min else "N/A")
+            mlflow.log_param(
+                "evaluate_quality_min",
+                config.effort.evaluate_quality_min.name if config.effort.evaluate_quality_min else "N/A",
+            )
             mlflow.log_param("effort_type", config.effort.type)
             mlflow.log_param("effort_level", config.effort.level)
             mlflow.log_param("write_option", config.workspace_write_option.value)

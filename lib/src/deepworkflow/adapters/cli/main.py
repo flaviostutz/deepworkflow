@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
+from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.runner import run_workflow
 from deepworkflow.shared.types import EffortConfig, WorkflowLogLevel, WriteOption
 
@@ -197,7 +197,9 @@ def _build_effort_config(raw: dict) -> EffortConfig:
     if "evaluate_quality_min" in ec_raw:
         kwargs["evaluate_quality_min"] = JudgeLevel[ec_raw["evaluate_quality_min"].upper()]
     if "evaluate_quality_on_max_retries" in ec_raw:
-        kwargs["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(ec_raw["evaluate_quality_on_max_retries"].lower())
+        kwargs["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(
+            ec_raw["evaluate_quality_on_max_retries"].lower()
+        )
     if "evaluate_quality_batch_instructions" in ec_raw:
         kwargs["evaluate_quality_batch_instructions"] = ec_raw["evaluate_quality_batch_instructions"]
 

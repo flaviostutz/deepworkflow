@@ -13,9 +13,9 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_map_batches_a
     evaluate_map_batches_agent,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig, resolveEffortConfig
-from deepworkflow.shared.types import EffortConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
+    EffortConfig,
     JudgeLevel,
     JudgeVerdict,
     WriteOption,

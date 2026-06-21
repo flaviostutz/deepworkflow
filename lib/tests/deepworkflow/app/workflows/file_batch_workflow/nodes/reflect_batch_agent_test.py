@@ -8,8 +8,7 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent im
     reflect_batch_agent,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import EffortConfig
-from deepworkflow.shared.types import WriteOption
+from deepworkflow.shared.types import EffortConfig, WriteOption
 
 
 def _mock_model(response: str):

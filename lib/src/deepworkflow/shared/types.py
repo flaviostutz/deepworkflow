@@ -256,8 +256,7 @@ class EffortConfig:
         # --- type="auto" guard (checked BEFORE resolution) ---
         if self.type == "auto":
             explicitly_set = [
-                f for f in self._DETAIL_FIELDS
-                if getattr(self, f) is not None and getattr(self, f) is not _UNSET
+                f for f in self._DETAIL_FIELDS if getattr(self, f) is not None and getattr(self, f) is not _UNSET
             ]
             if explicitly_set:
                 msg = f"EffortConfig: no options can be set when type='auto'. Found: {sorted(explicitly_set)}"

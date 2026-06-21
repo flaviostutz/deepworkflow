@@ -29,12 +29,13 @@ Agent-specific inputs:
 - files_to_work_with:
 {batch_files}
 - write_option: {write_option}
-{evaluate_quality_feedback_section}"""
+{evaluate_quality_feedback_section}{previous_execute_output_section}"""
 
 _TOOL_GUIDANCE = f"""{TOOL_GUIDANCE_BASE}
 
 Read the relevant files before planning so your plan is grounded in their actual content.
-Do not make any changes — only analyse and plan."""
+Do not make any changes — only analyse and plan.
+If previous_execute_output is provided, build on that work — do not re-plan steps already completed."""
 
 _OUTPUT_FORMAT = """\
 A clear, actionable prose or numbered-step plan. Each step must describe exactly what should be done
@@ -67,6 +68,15 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
             "Previous attempt was rejected by evaluate_quality. Address this feedback:\n" + "\n".join(feedback_lines)
         )
 
+    previous_execute_output = state.get("previous_execute_output", "")
+    if previous_execute_output:
+        previous_execute_output_section = (
+            "Previous passes already completed — your plan must build on this, not repeat it:\n"
+            + previous_execute_output
+        )
+    else:
+        previous_execute_output_section = ""
+
     prompt = build_agent_prompt(
         objective=_OBJECTIVE,
         role=_ROLE,
@@ -77,6 +87,7 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
             batch_files="\n".join(current_batch.batch_files),
             write_option=config.workspace_write_option.value,
             evaluate_quality_feedback_section=evaluate_quality_feedback_section,
+            previous_execute_output_section=previous_execute_output_section,
         ),
         tool_guidance=_TOOL_GUIDANCE,
         output_format=_OUTPUT_FORMAT,

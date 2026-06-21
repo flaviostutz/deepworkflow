@@ -18,7 +18,6 @@ from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import (
     BatchDefinition,
     EffortConfig,
-    EffortConfig,
     JudgeFinding,
     JudgeLevel,
     JudgeVerdict,

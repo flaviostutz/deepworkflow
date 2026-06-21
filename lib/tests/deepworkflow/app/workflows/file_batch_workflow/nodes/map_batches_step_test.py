@@ -4,7 +4,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.map_batches_step import map_batches_step
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import EffortConfig, EffortConfig, WriteOption
+from deepworkflow.shared.types import EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> FakeListChatModel:

@@ -85,6 +85,7 @@ def analyze_task_effort_agent(state: file_batch_workflow_state) -> dict:
         system_prompt=prompt,
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,
+        json_mode=True,
     )
 
     result = agent.invoke({"messages": STANDARD_USER_MESSAGE})

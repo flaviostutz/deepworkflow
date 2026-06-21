@@ -5,8 +5,7 @@ from pathlib import Path
 
 from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import _is_glob_pattern, resolve_globs_step
 from deepworkflow.shared.config import DeepWorkflowConfig
-from deepworkflow.shared.types import EffortConfig
-from deepworkflow.shared.types import WriteOption
+from deepworkflow.shared.types import EffortConfig, WriteOption
 
 
 def _mock_model(_agent_name: str) -> None:  # type: ignore[return]

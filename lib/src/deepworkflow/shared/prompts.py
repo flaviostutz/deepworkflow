@@ -21,6 +21,11 @@ Two evaluators operate in the per-batch loop:
 - evaluate_batch_quality_agent (evaluate quality): final check after all passes complete —
   evaluates the overall quality of the batch result and decides whether to accept or retry."""
 
+GENERAL_BEHAVIOR = """\
+- NEVER ask clarifying questions or request additional input from the user.
+- If processing is genuinely impossible due to missing context, respond with exactly: \
+CANNOT PROCESS THIS REQUEST: [reason in 30 words]"""
+
 TOOL_GUIDANCE_BASE = """\
 To accomplish your role effectively, actively use all available tools — do not rely on memory alone:
 - Shell execution: run commands to inspect the environment, execute scripts, and verify outputs
@@ -130,4 +135,5 @@ def build_agent_prompt(  # noqa: PLR0913
         parts.append(f"<TOOL_GUIDANCE>\n{tool_guidance}\n</TOOL_GUIDANCE>")
     parts.append(f"<OUTPUT_FORMAT>\n{output_format}\n</OUTPUT_FORMAT>")
     parts.append(f"<WORKFLOW_CONTEXT>\n{WORKFLOW_CONTEXT}\n</WORKFLOW_CONTEXT>")
+    parts.append(f"<GENERAL_BEHAVIOR>\n{GENERAL_BEHAVIOR}\n</GENERAL_BEHAVIOR>")
     return "\n\n".join(parts)

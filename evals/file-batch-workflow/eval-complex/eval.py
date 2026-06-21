@@ -25,23 +25,6 @@ EVAL_MIN_SIMILARITY = 0.7
 
 EVAL_KEYCHAIN_SERVICE = "azure-openai/dev-api-key"
 
-TASK_INSTRUCTIONS = """\
-Analyze each Python file in this data-processing library and write a code-analysis report for it.
-
-For each source file create a report at 'reports/<source_filename_without_extension>.md'.
-
-Each report MUST include these sections exactly:
-  # <filename> Analysis
-  ## Summary        — purpose and overall quality of the file
-  ## Findings       — list of bugs/issues, each tagged CRITICAL / MAJOR / MINOR with the line number
-  ## Recommendations — actionable improvement suggestions
-
-Quality language:
-- MUST / REQUIRED / MANDATORY -> critical, non-negotiable
-- SHOULD / RECOMMENDED -> important but non-blocking
-- COULD / SUGGESTED -> nice-to-have\
-"""
-
 JUDGE_BATCH_INSTRUCTIONS = """\
 - A report file MUST exist at reports/<source_filename_without_extension>.md for every source file in the batch.
 - Every finding MUST include a severity label (CRITICAL, MAJOR, or MINOR).
@@ -78,32 +61,33 @@ def _model_factory(agent_name: str):  # noqa: ARG001
     )
 
 
-CONFIG = DeepWorkflowConfig(
-    workspace_dir=EVAL_WORKSPACE_DIR,
-    task_instructions=TASK_INSTRUCTIONS,
-    model=_model_factory,
-    workspace_write_option=WriteOption.WRITE_ANY,
-    task_files=[
-        "parsers/*.py",
-        "transformers/*.py",
-    ],
-    effort=EffortConfig(
-        map_batches_mode="static",
-        max_files_per_batch=20,
-        evaluate_batch_convergence_max_retries=2,
-        evaluate_batch_quality_max_retries=2,
-        evaluate_quality_min=JudgeLevel.WARNING,
-        evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-        evaluate_quality_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
-    ),
-    log_level=WorkflowLogLevel.DEBUG,
-)
-
-
-def _load_expected_output() -> dict[str, str]:
-    """Load the per-file expected keyword map from the JSONL dataset."""
+def _load_dataset() -> tuple[str, dict[str, str]]:
+    """Load task_instructions and expected output from the JSONL dataset."""
     record = json.loads(EVAL_EXPECTED_OUTPUT_PATH.read_text().strip().splitlines()[0])
-    return record["expected_output"]
+    return record["input"]["task_instructions"], record["expected_output"]
+
+
+def _build_config(task_instructions: str) -> DeepWorkflowConfig:
+    return DeepWorkflowConfig(
+        workspace_dir=EVAL_WORKSPACE_DIR,
+        task_instructions=task_instructions,
+        model=_model_factory,
+        workspace_write_option=WriteOption.WRITE_ANY,
+        task_files=[
+            "parsers/*.py",
+            "transformers/*.py",
+        ],
+        effort=EffortConfig(
+            map_batches_mode="static",
+            max_files_per_batch=20,
+            evaluate_batch_convergence_max_retries=2,
+            evaluate_batch_quality_max_retries=2,
+            evaluate_quality_min=JudgeLevel.WARNING,
+            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            evaluate_quality_batch_instructions=JUDGE_BATCH_INSTRUCTIONS,
+        ),
+        log_level=WorkflowLogLevel.DEBUG,
+    )
 
 
 def _check_report(report_path: Path, keywords_str: str) -> float:
@@ -186,28 +170,29 @@ def _write_eval_report(
         f"- MLflow run ID: {run_id} — view with `mlflow ui`",
         "",
     ]
-    Path("eval-complex-report.md").write_text("\n".join(lines), encoding="utf-8")
+    Path("report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def run_eval() -> None:
     """Run the complex evaluation slice."""
     mlflow.set_experiment("deepworkflow-complex")
-    expected_output = _load_expected_output()
+    task_instructions, expected_output = _load_dataset()
+    config = _build_config(task_instructions)
 
     per_file_scores: list[float] = []
     avg_score = 0.0
     passed = False
 
     with mlflow.start_run(run_name="complex-eval") as run:
-        mlflow.log_param("task_instructions", CONFIG.task_instructions)
-        mlflow.log_param("evaluate_quality_min", CONFIG.effort.evaluate_quality_min.name)
-        mlflow.log_param("write_option", CONFIG.workspace_write_option.value)
-        mlflow.log_param("evaluate_batch_convergence_max_retries", CONFIG.effort.evaluate_batch_convergence_max_retries)
-        mlflow.log_param("evaluate_batch_quality_max_retries", CONFIG.effort.evaluate_batch_quality_max_retries)
-        mlflow.log_param("max_files_per_batch", CONFIG.effort.max_files_per_batch)
+        mlflow.log_param("task_instructions", config.task_instructions)
+        mlflow.log_param("evaluate_quality_min", config.effort.evaluate_quality_min.name)
+        mlflow.log_param("write_option", config.workspace_write_option.value)
+        mlflow.log_param("evaluate_batch_convergence_max_retries", config.effort.evaluate_batch_convergence_max_retries)
+        mlflow.log_param("evaluate_batch_quality_max_retries", config.effort.evaluate_batch_quality_max_retries)
+        mlflow.log_param("max_files_per_batch", config.effort.max_files_per_batch)
 
         try:
-            run_workflow(CONFIG, clone_workspace_dir=EVAL_CLONE_DIR)
+            run_workflow(config, clone_workspace_dir=EVAL_CLONE_DIR)
         except RuntimeError as e:
             mlflow.log_metric("success", 0)
             mlflow.log_param("error", str(e))

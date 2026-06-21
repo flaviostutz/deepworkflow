@@ -30,8 +30,8 @@ evals/
   <component>/           # the component being evaluated (e.g., workflow-x, agent-y, model-z)
     eval-<name>/
       dataset/           # EDR-024 compliant dataset (README.md, dataset.schema.json, data/)
-      eval-<name>.py     # evaluation script
-      eval-<name>-report.md     # generated report (overwritten on each run — see rule 03)
+      eval.py            # evaluation script
+      report.md          # generated report (overwritten on each run — see rule 03)
       Makefile           # eval and run targets
     eval-<name2>/
       ...
@@ -62,13 +62,13 @@ eval:
 
 #### 02-eval-script-requirements
 
-Each `eval-<name>.py` script MUST:
+Each `eval.py` script MUST:
 
 - Load the dataset from `dataset/` in the same eval folder, following [agentme-edr-024](024-ml-dataset-structure.md). For input/output pairs, use the JSONL format per `agentme-edr-024.04-complex-structured-datasets-must-use-jsonl`.
 - Run every input through the live component against **real LLM providers** (not mocked responses), to capture model drift.
 - Log per-sample and aggregate metrics to an MLflow experiment that runs **locally** — a remote MLflow server MUST NOT be required.
 - Compare outputs to expected values using project-defined quality thresholds. Thresholds MUST be declared explicitly (e.g., in a Makefile variable or README).
-- Write `eval-<name>-report.md` in the same folder per rule `03-eval-report-file`.
+- Write `report.md` in the same folder per rule `03-eval-report-file`.
 - Exit with a non-zero status when any metric falls below its defined threshold, consistent with [agentme-edr-007](../principles/007-project-quality-standards.md) rule `07-statistical-models-must-have-eval-targets`.
 
 **Example:**
@@ -96,7 +96,7 @@ with mlflow.start_run() as run:
 
 #### 03-eval-report-file
 
-Each eval script MUST produce `eval-<name>-report.md` in the same `evals/<component>/eval-<name>/` folder and overwrite it on every run.
+Each eval script MUST produce `report.md` in the same `evals/<component>/eval-<name>/` folder and overwrite it on every run.
 
 **Generation constraint:** The report MUST be produced programmatically, reading raw metric values directly from MLflow. No LLM or generative model may write, summarize, or paraphrase any section of the report, to prevent hallucinated metric values.
 
@@ -107,7 +107,7 @@ The report MUST follow this template:
 
 **Date:** <ISO date>
 **Dataset:** dataset/
-**Script:** eval-<name>.py
+**Script:** eval.py
 **Thresholds:** accuracy ≥ <value>, F1 ≥ <value>
 
 ## Overall Results
@@ -142,14 +142,14 @@ $$\frac{\hat{p} + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac
 
 Where $\hat{p}$ is observed accuracy and $n$ is sample count. Accuracy and F1 are required; precision and recall are recommended.
 
-**Filled-in example** (`evals/workflow-document-review/eval-basic/eval-basic-report.md` for a document review workflow):
+**Filled-in example** (`evals/workflow-document-review/eval-basic/report.md` for a document review workflow):
 
 ```markdown
 # Eval Report: eval-basic
 
 **Date:** 2026-06-12
 **Dataset:** dataset/
-**Script:** eval-basic.py
+**Script:** eval.py
 **Thresholds:** accuracy ≥ 0.85, F1 ≥ 0.80
 
 ## Overall Results
@@ -181,6 +181,12 @@ Where $\hat{p}$ is observed accuracy and $n$ is sample count. Accuracy and F1 ar
 - Sample 005 misclassified: redlined IP clause not flagged as escalation trigger. Possible model drift.
 - MLflow run: experiment `workflow-document-review/eval-basic` — view with `mlflow ui`
 ```
+
+#### 04-eval-mlflow-unique-port
+
+Each `evals/<component>/eval-<name>/Makefile` MUST start its MLflow tracking server on a **unique port** to prevent conflicts when multiple eval Makefiles are run concurrently or in parallel (e.g., in CI or across multiple terminal sessions).
+
+Ports MUST be statically assigned per eval scenario and MUST NOT reuse the default `5000` port (reserved for `dev-mlflow` per [agentme-edr-008](../devops/008-common-targets.md) rule `09-ai-project-dev-targets`). Assign ports starting at `5100` and incrementing by 1 for each additional eval scenario across the entire project.
 
 ## References
 
