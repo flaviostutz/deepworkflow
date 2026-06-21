@@ -11,8 +11,8 @@ def batch_output_record_step(state: file_batch_workflow_state) -> dict:
 
     # Accumulate the final pass into cumulative — same pattern as batch_convergence_repeat_step.
     # batch_cumulative_* holds all previous passes; batch_files_* / batch_execute_output hold the last pass only.
-    files_read = list(state.get("batch_cumulative_files_read", [])) + list(state.get("batch_files_read", []))
-    files_written = list(state.get("batch_cumulative_files_written", [])) + list(state.get("batch_files_written", []))
+    files_read = list(dict.fromkeys(list(state.get("batch_cumulative_files_read", [])) + list(state.get("batch_files_read", []))))
+    files_written = list(dict.fromkeys(list(state.get("batch_cumulative_files_written", [])) + list(state.get("batch_files_written", []))))
 
     cumulative_execute_output = state.get("batch_cumulative_output", "")
     current_execute_output = state.get("batch_execute_output", "")

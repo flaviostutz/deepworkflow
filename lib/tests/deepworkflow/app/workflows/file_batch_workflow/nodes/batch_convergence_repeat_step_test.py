@@ -37,6 +37,14 @@ class TestIncrementBatchRepeatStep:
         result = batch_convergence_repeat_step(state)
         assert result["batch_cumulative_files_read"] == ["prior.py", "a.py", "b.py"]
 
+    def test_deduplicates_files_read(self):
+        state = _make_state(
+            batch_cumulative_files_read=["prior.py", "a.py"],
+            batch_files_read=["a.py", "b.py"],
+        )
+        result = batch_convergence_repeat_step(state)
+        assert result["batch_cumulative_files_read"] == ["prior.py", "a.py", "b.py"]
+
     def test_merges_files_written_into_cumulative(self):
         state = _make_state(
             batch_cumulative_files_written=["old.py"],
@@ -44,6 +52,14 @@ class TestIncrementBatchRepeatStep:
         )
         result = batch_convergence_repeat_step(state)
         assert result["batch_cumulative_files_written"] == ["old.py", "new.py"]
+
+    def test_deduplicates_files_written(self):
+        state = _make_state(
+            batch_cumulative_files_written=["old.py", "new.py"],
+            batch_files_written=["new.py", "extra.py"],
+        )
+        result = batch_convergence_repeat_step(state)
+        assert result["batch_cumulative_files_written"] == ["old.py", "new.py", "extra.py"]
 
     def test_empty_files_appends_nothing(self):
         state = _make_state(

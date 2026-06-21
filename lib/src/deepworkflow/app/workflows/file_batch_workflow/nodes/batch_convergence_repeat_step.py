@@ -14,10 +14,11 @@ def batch_convergence_repeat_step(state: file_batch_workflow_state) -> dict:
     cumulative_files_read = list(state.get("batch_cumulative_files_read", []))
     cumulative_files_written = list(state.get("batch_cumulative_files_written", []))
 
-    # Accumulate files from the completed pass (preserve order, allow duplicates
-    # so the caller can decide to deduplicate if needed)
+    # Accumulate files from the completed pass, deduplicating while preserving order
     cumulative_files_read.extend(state.get("batch_files_read", []))
     cumulative_files_written.extend(state.get("batch_files_written", []))
+    cumulative_files_read = list(dict.fromkeys(cumulative_files_read))
+    cumulative_files_written = list(dict.fromkeys(cumulative_files_written))
 
     # Accumulate batch_execute_output so the next plan pass can see what was already done
     current_execute_output = state.get("batch_execute_output", "")
