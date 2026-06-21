@@ -94,20 +94,20 @@ _GUARDRAILS = """\
 
 _OUTPUT_FORMAT = """\
 On success:
-{{
+{
   "map_plan_overview": "Overall strategy and context for all batches...",
   "reduce_instructions": "How to consolidate/merge results from all batches...",
   "batches": [
-    {{"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Instructions for this batch..."}},
-    {{"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale and specific instructions..."}}
+    {"batch_files": ["file1.py", "file2.py"], "batch_instructions": "Instructions for this batch..."},
+    {"batch_files": ["file3.py"], "batch_instructions": "Grouping rationale and specific instructions..."}
   ]
-}}
+}
 
 On failure (unclear or insufficient instructions):
-{{
+{
   "error": true,
   "message": "The task instructions are insufficient because... To improve, consider..."
-}}"""
+}"""
 
 _MANDATORY_ADVISORY_KEYWORDS = {"must", "required", "mandatory", "should", "recommended", "could", "may", "suggested"}
 

@@ -59,18 +59,18 @@ Evaluate the batch plan against these criteria:
    same files concurrently."""
 
 _EVAL_MAP_OUTPUT_FORMAT = """\
-{{
+{
   "verdict": "OK|INFO|WARNING|ERROR",
   "findings": [
-    {{
+    {
       "level": "OK|INFO|WARNING|ERROR",
       "title": "<10 words — action-oriented label for this finding>",
       "reason": "<30 words max — why this level was assigned; required when level is not OK>",
       "details": "<up to 400 words — notes and findings; required when level is not OK>",
       "fix": "<up to 200 words — concrete fix steps; include only when directly inferrable>"
-    }}
+    }
   ]
-}}
+}
 
 The verdict MUST be the worst (lowest) level across all findings."""
 

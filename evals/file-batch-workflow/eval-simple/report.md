@@ -21,9 +21,9 @@
 
 | ID  | Input Summary          | Expected           | Actual | Correct |
 |-----|------------------------|--------------------|--------|---------|
-| 001 | dataset/data (*.py)    | similarity ≥ 0.5 | 1.00   | ✓       |
+| 001 | dataset/data (*.py)    | similarity ≥ 0.5 | 0.50   | ✓       |
 
 ## Notes
 
-- Similarity score: 1.0000 (threshold: 0.5)
-- MLflow run ID: 9a15e44aa5d14330b7e84aaf97d35739 — view with `mlflow ui`
+- Similarity score: 0.5000 (threshold: 0.5)
+- MLflow run ID: 08b9e1defcd34d5b9960329c15ceae1d — view with `mlflow ui`

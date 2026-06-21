@@ -77,17 +77,17 @@ _GUARDRAILS = """\
 
 _OUTPUT_FORMAT = """\
 Respond with a JSON object in the following format:
-{{
+{
   "verdict": "OK|WARNING",
   "findings": [
-    {{
+    {
       "level": "OK|WARNING",
       "title": "<10 words — what happened in this pass for this file>",
       "reason": "<30 words max — why convergence was or was not reached; required when level is WARNING>",
       "fix": "<what a next pass could concretely improve; omit when level is OK>"
-    }}
+    }
   ]
-}}
+}
 
 Verdict meaning:
 - WARNING: New meaningful work was done — another pass may improve results further (not yet converged)

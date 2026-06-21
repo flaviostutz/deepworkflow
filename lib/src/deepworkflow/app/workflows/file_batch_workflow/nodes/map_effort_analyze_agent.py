@@ -52,10 +52,10 @@ GUARDRAIL: You MUST NOT perform any part of the actual task.  Analysis and level
 
 _OUTPUT_FORMAT = """\
 Respond with exactly one JSON object:
-{{
+{
   "level": <integer 1-10>,
   "reasoning": "<2-4 sentences explaining the key factors that drove this level>"
-}}"""
+}"""
 
 _LEVEL_RE = re.compile(r'"level"\s*:\s*([1-9]|10)')
 
