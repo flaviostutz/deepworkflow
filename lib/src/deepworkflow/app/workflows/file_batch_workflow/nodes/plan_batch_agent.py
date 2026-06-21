@@ -29,13 +29,13 @@ Agent-specific inputs:
 - files_to_work_with:
 {batch_files}
 - write_option: {write_option}
-{evaluate_quality_feedback_section}{previous_execute_output_section}"""
+{cumulative_files_section}{evaluate_quality_feedback_section}{cumulative_execute_output_section}"""
 
 _TOOL_GUIDANCE = f"""{TOOL_GUIDANCE_BASE}
 
 Read the relevant files before planning so your plan is grounded in their actual content.
 Do not make any changes — only analyse and plan.
-If previous_execute_output is provided, build on that work — do not re-plan steps already completed."""
+If cumulative_execute_output is provided, build on that work — do not re-plan steps already completed."""
 
 _OUTPUT_FORMAT = """\
 A clear, actionable prose or numbered-step plan. Each step must describe exactly what should be done
@@ -68,14 +68,25 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
             "Previous attempt was rejected by evaluate_quality. Address this feedback:\n" + "\n".join(feedback_lines)
         )
 
-    previous_execute_output = state.get("previous_execute_output", "")
-    if previous_execute_output:
-        previous_execute_output_section = (
+    cumulative_execute_output = state.get("cumulative_execute_output", "")
+    if cumulative_execute_output:
+        cumulative_execute_output_section = (
             "Previous passes already completed — your plan must build on this, not repeat it:\n"
-            + previous_execute_output
+            + cumulative_execute_output
         )
     else:
-        previous_execute_output_section = ""
+        cumulative_execute_output_section = ""
+
+    cumulative_files_read = state.get("cumulative_files_read", [])
+    cumulative_files_written = state.get("cumulative_files_written", [])
+    if cumulative_files_read or cumulative_files_written:
+        cumulative_files_section = "Files already worked on in previous passes:\n"
+        if cumulative_files_read:
+            cumulative_files_section += "- Already read: " + ", ".join(cumulative_files_read) + "\n"
+        if cumulative_files_written:
+            cumulative_files_section += "- Already written: " + ", ".join(cumulative_files_written) + "\n"
+    else:
+        cumulative_files_section = ""
 
     prompt = build_agent_prompt(
         objective=_OBJECTIVE,
@@ -86,8 +97,9 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
             batch_instructions=batch_instructions,
             batch_files="\n".join(current_batch.batch_files),
             write_option=config.workspace_write_option.value,
+            cumulative_files_section=cumulative_files_section,
             evaluate_quality_feedback_section=evaluate_quality_feedback_section,
-            previous_execute_output_section=previous_execute_output_section,
+            cumulative_execute_output_section=cumulative_execute_output_section,
         ),
         tool_guidance=_TOOL_GUIDANCE,
         output_format=_OUTPUT_FORMAT,
@@ -102,6 +114,6 @@ def plan_batch_agent(state: file_batch_workflow_state) -> dict:
 
     result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
-    plan_output = last_message.content if hasattr(last_message, "content") else str(last_message)
+    batch_plan = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-    return {"plan_output": plan_output}
+    return {"batch_plan": batch_plan}

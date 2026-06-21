@@ -40,14 +40,14 @@ def _make_state(**overrides) -> dict:
 
 
 class TestPlanBatchAgent:
-    def test_returns_plan_output(self, mocker):
+    def test_returns_batch_plan(self, mocker):
         mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.plan_batch_agent.create_agent",
             "step 1: do this; step 2: do that",
         )
         result = plan_batch_agent(_make_state())
-        assert result["plan_output"] == "step 1: do this; step 2: do that"
+        assert result["batch_plan"] == "step 1: do this; step 2: do that"
 
     def test_with_evaluate_quality_feedback(self, mocker):
         mock_deep_agent(
@@ -57,7 +57,7 @@ class TestPlanBatchAgent:
         )
         feedback = EvaluateFeedback(file="a.py", type=JudgeLevel.ERROR, description="bad plan", proposal="redo it")
         result = plan_batch_agent(_make_state(evaluate_quality_feedbacks=[feedback]))
-        assert result["plan_output"] == "revised plan"
+        assert result["batch_plan"] == "revised plan"
 
     def test_without_task_overview(self, mocker):
         mock_deep_agent(
@@ -68,14 +68,14 @@ class TestPlanBatchAgent:
         state = _make_state()
         del state["task_overview"]
         result = plan_batch_agent(state)
-        assert result["plan_output"] == "plan without overview"
+        assert result["batch_plan"] == "plan without overview"
 
-    def test_previous_execute_output_not_in_prompt(self, mocker):
+    def test_cumulative_execute_output_in_prompt(self, mocker):
         mock = mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.plan_batch_agent.create_agent",
             "plan",
         )
-        plan_batch_agent(_make_state(previous_execute_output="some prior work was done"))
+        plan_batch_agent(_make_state(cumulative_execute_output="some prior work was done"))
         system_prompt = mock.call_args.kwargs["system_prompt"]
-        assert "some prior work was done" not in system_prompt
+        assert "some prior work was done" in system_prompt

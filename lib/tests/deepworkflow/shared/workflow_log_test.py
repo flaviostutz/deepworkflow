@@ -99,12 +99,12 @@ class TestWrapNodeLogLevelInfo:
     def test_show_batch_index(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
         wrap_node("my_node", fn, show_batch_index=True)(_make_state(WorkflowLogLevel.INFO, batch_index=2))
-        assert "> my_node[2:0]" in capsys.readouterr().out
+        assert "> my_node[2:0:0]" in capsys.readouterr().out
 
     def test_show_batch_index_zero(self, capsys: pytest.CaptureFixture) -> None:
         fn = MagicMock(return_value={})
         wrap_node("node", fn, show_batch_index=True)(_make_state(WorkflowLogLevel.INFO, batch_index=0))
-        assert "> node[0:0]" in capsys.readouterr().out
+        assert "> node[0:0:0]" in capsys.readouterr().out
 
 
 class TestWrapNodeStats:

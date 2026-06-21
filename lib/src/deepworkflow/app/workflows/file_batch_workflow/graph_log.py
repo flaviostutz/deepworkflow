@@ -122,10 +122,12 @@ def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
         fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
         lines.append(f"evaluation feedback: {fb_text}")
 
-    previous_execute_output = state.get("previous_execute_output", "")
-    if previous_execute_output:
+    cumulative_execute_output = state.get("cumulative_execute_output", "")
+    if cumulative_execute_output:
         prev_text = (
-            previous_execute_output if log_level == WorkflowLogLevel.DEBUG else _truncate(previous_execute_output, 20)
+            cumulative_execute_output
+            if log_level == WorkflowLogLevel.DEBUG
+            else _truncate(cumulative_execute_output, 20)
         )
         lines.append(f"previous output: {prev_text}")
 
@@ -133,12 +135,12 @@ def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
 
 
 def _log_plan_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    plan = result.get("plan_output", "")
-    text = _truncate(plan, 20)
-    return [f"output: {text}"]
+    plan = result.get("batch_plan", "")
+    text = plan if log_level == WorkflowLogLevel.DEBUG else _truncate(plan, 20)
+    return [f"plan: {text}"]
 
 
-# analyze_task_effort_agent
+# effort_analyze_auto_agent
 def _log_analyze_effort_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     ec = result.get("effort_config")
     if ec is None:
@@ -172,8 +174,8 @@ def _log_execute_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str
     instructions = batches[idx].batch_instructions if idx < len(batches) else ""
     lines.append(f"batch instructions: {_truncate(instructions or '', 20)}")
 
-    plan_output = state.get("plan_output", "")
-    plan_text = (plan_output or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(plan_output or "", 20)
+    batch_plan = state.get("batch_plan", "")
+    plan_text = (batch_plan or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(batch_plan or "", 20)
     lines.append(f"batch plan: {plan_text}")
 
     judge_verdict = state.get("evaluate_quality_judge_verdict")
@@ -182,10 +184,12 @@ def _log_execute_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str
         fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
         lines.append(f"evaluation feedback: {fb_text}")
 
-    previous_execute_output = state.get("previous_execute_output", "")
-    if previous_execute_output:
+    cumulative_execute_output = state.get("cumulative_execute_output", "")
+    if cumulative_execute_output:
         prev_text = (
-            previous_execute_output if log_level == WorkflowLogLevel.DEBUG else _truncate(previous_execute_output, 20)
+            cumulative_execute_output
+            if log_level == WorkflowLogLevel.DEBUG
+            else _truncate(cumulative_execute_output, 20)
         )
         lines.append(f"previous output: {prev_text}")
 

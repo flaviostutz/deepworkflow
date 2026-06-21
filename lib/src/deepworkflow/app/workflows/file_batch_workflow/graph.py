@@ -20,10 +20,11 @@ from deepworkflow.app.workflows.file_batch_workflow.graph_log import (
     _log_reflect_batch_post,
     _log_resolve_globs_post,
 )
-from deepworkflow.app.workflows.file_batch_workflow.nodes.analyze_task_effort_agent import analyze_task_effort_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.check_max_retries_policy_step import (
     check_max_retries_policy_step,
 )
+from deepworkflow.app.workflows.file_batch_workflow.nodes.effort_analyze_auto_agent import effort_analyze_auto_agent
+from deepworkflow.app.workflows.file_batch_workflow.nodes.effort_static_step import effort_static_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.evaluate_batch_convergence_agent import (
     evaluate_batch_convergence_agent,
 )
@@ -46,9 +47,9 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes.reduce_consolidate_age
 from deepworkflow.app.workflows.file_batch_workflow.nodes.reduce_consolidate_step import reduce_consolidate_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.reflect_batch_agent import reflect_batch_agent
 from deepworkflow.app.workflows.file_batch_workflow.nodes.resolve_globs_step import resolve_globs_step
-from deepworkflow.app.workflows.file_batch_workflow.nodes.set_effort_config_step import set_effort_config_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.skip_batch_plan_step import skip_batch_plan_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.skip_evaluate_quality_step import skip_evaluate_quality_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.skip_reflect_batch_step import skip_reflect_batch_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.validate_map_batches_step import validate_map_batches_step
 from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_batch_convergence,
@@ -57,6 +58,7 @@ from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_retries,
     check_verdict,
     next_batch,
+    route_after_execute,
     route_after_map_verdict,
     route_after_reflect,
     route_effort_config,
@@ -88,14 +90,14 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
         wrap_node("resolve_globs_step", resolve_globs_step, log_post_fn=_log_resolve_globs_post),
     )
     builder.add_node(
-        "set_effort_config_step",
-        wrap_node("set_effort_config_step", set_effort_config_step),
+        "effort_static_step",
+        wrap_node("effort_static_step", effort_static_step),
     )
     builder.add_node(
-        "analyze_task_effort_agent",
+        "effort_analyze_auto_agent",
         wrap_node(
-            "analyze_task_effort_agent",
-            analyze_task_effort_agent,
+            "effort_analyze_auto_agent",
+            effort_analyze_auto_agent,
             log_post_fn=_log_analyze_effort_post,
         ),
     )
@@ -145,6 +147,10 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_node(
         "skip_batch_plan_step",
         wrap_node("skip_batch_plan_step", skip_batch_plan_step, show_batch_index=True),
+    )
+    builder.add_node(
+        "skip_reflect_batch_step",
+        wrap_node("skip_reflect_batch_step", skip_reflect_batch_step, show_batch_index=True),
     )
     builder.add_node(
         "execute_batch_agent",
@@ -221,9 +227,9 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     builder.add_conditional_edges(
         "resolve_globs_step",
         wrap_route("route_effort_config", route_effort_config),
-        {"set_effort_config_step": "set_effort_config_step", "analyze_task_effort_agent": "analyze_task_effort_agent"},
+        {"effort_static_step": "effort_static_step", "effort_analyze_auto_agent": "effort_analyze_auto_agent"},
     )
-    for effort_node in ("set_effort_config_step", "analyze_task_effort_agent"):
+    for effort_node in ("effort_static_step", "effort_analyze_auto_agent"):
         builder.add_conditional_edges(
             effort_node,
             wrap_route("route_map_batches_mode", route_map_batches_mode),
@@ -267,7 +273,12 @@ def build_file_batch_workflow(checkpointer: Any = None) -> Any:
     # ── Phase 2 edges ─────────────────────────────────────────────────────────
     for plan_node in ("plan_batch_agent", "skip_batch_plan_step"):
         builder.add_edge(plan_node, "execute_batch_agent")
-    builder.add_edge("execute_batch_agent", "reflect_batch_agent")
+    builder.add_conditional_edges(
+        "execute_batch_agent",
+        wrap_route("route_after_execute", route_after_execute),
+        {"reflect_batch_agent": "reflect_batch_agent", "skip_reflect_batch_step": "skip_reflect_batch_step"},
+    )
+    builder.add_edge("skip_reflect_batch_step", "skip_evaluate_quality_step")
 
     # After reflect: convergence loop, evaluate quality, or skip
     builder.add_conditional_edges(

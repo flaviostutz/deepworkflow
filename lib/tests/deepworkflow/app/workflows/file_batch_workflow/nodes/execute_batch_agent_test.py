@@ -34,7 +34,7 @@ def _make_state(**overrides) -> dict:
         "current_batch_index": 0,
         "task_file_batches": [BatchDefinition(batch_files=["a.py"], batch_instructions="do it")],
         "task_overview": "overall plan",
-        "plan_output": "step 1: read file; step 2: summarize",
+        "batch_plan": "step 1: read file; step 2: summarize",
     }
     defaults.update(overrides)
     return defaults
@@ -62,13 +62,13 @@ class TestExecuteBatchAgent:
         assert result["execute_output"] == "revised execution"
         assert "execute_messages" in result
 
-    def test_with_previous_execute_output(self, mocker):
+    def test_with_cumulative_execute_output(self, mocker):
         mock = mock_deep_agent(
             mocker,
             "deepworkflow.app.workflows.file_batch_workflow.nodes.execute_batch_agent.create_agent",
             "additional work done",
         )
-        result = execute_batch_agent(_make_state(previous_execute_output="prior pass completed file a.py"))
+        result = execute_batch_agent(_make_state(cumulative_execute_output="prior pass completed file a.py"))
         assert result["execute_output"] == "additional work done"
         system_prompt = mock.call_args.kwargs["system_prompt"]
         assert "prior pass completed file a.py" in system_prompt

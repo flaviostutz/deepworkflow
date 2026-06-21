@@ -141,22 +141,29 @@ def wrap_node(  # noqa: PLR0913, C901
 
     """
 
+    def _increment_stat() -> None:
+        s = _stats_var.get()
+        if s is not None:
+            if stat == "quality_retry":
+                s.quality_retries += 1
+            elif stat == "convergence_retry":
+                s.convergence_retries += 1
+
     def _wrapped(state: dict) -> dict:
         config = state.get("config")
         log_level = config.log_level if config is not None else WorkflowLogLevel.NONE
 
-        stats = _stats_var.get()
-        if stats is not None:
-            if stat == "quality_retry":
-                stats.quality_retries += 1
-            elif stat == "convergence_retry":
-                stats.convergence_retries += 1
+        _increment_stat()
 
-        display_name = (
-            f"{name}[{state.get('current_batch_index', '')}:{state.get('batch_repeat_count', 0)}:{state.get('retry_count', 0)}]"
-            if show_batch_index
-            else name
-        )
+        if show_batch_index:
+            idx = (
+                f"{state.get('current_batch_index', '')}"
+                f":{state.get('batch_repeat_count', 0)}"
+                f":{state.get('retry_count', 0)}"
+            )
+            display_name = f"{name}[{idx}]"
+        else:
+            display_name = name
 
         if log_level in (WorkflowLogLevel.INFO, WorkflowLogLevel.DEBUG):
             print(f"> {display_name}")  # noqa: T201
@@ -348,7 +355,7 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
             display_models.append(model_name)
         else:
             actual_cost += (in_tok / 1_000_000) * fallback_price[0] + (out_tok / 1_000_000) * fallback_price[1]
-            display_models.append(f"{_FALLBACK_MODEL}*")
+            display_models.append(f"{model_name} (ref {_FALLBACK_MODEL}*)")
     if (total_in or total_out) and display_models:
         cost_str = f" (~US$ {actual_cost:.2f} on {', '.join(display_models)})"
     else:

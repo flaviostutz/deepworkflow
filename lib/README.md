@@ -34,7 +34,7 @@ config = DeepWorkflowConfig(
     model=lambda _: ChatOpenAI(model="gpt-4o"),
     workspace_write_option=WriteOption.READ_ONLY,
     effort=EffortConfig(
-        level=3,                                   # level 1-10 preset
+        level=3,                                   # level 0-10 preset
         evaluate_quality_min=JudgeLevel.WARNING,
         evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
     ),
@@ -54,7 +54,7 @@ config = DeepWorkflowConfig(
     task_instructions="Refactor all modules for consistency",
     model=lambda _: ChatOpenAI(model="gpt-4o"),
     workspace_write_option=WriteOption.WRITE_ANY,
-    effort=EffortConfig(type="auto"),   # analyze_task_effort_agent determines the level
+    effort=EffortConfig(type="auto"),   # effort_analyze_auto_agent determines the level
 )
 ```
 
@@ -119,7 +119,7 @@ from deepworkflow import resolveEffortConfig
 from deepworkflow.shared.types import EffortConfig
 
 # Level preset (recommended)
-effort = EffortConfig(level=3)   # default level; use 1-10 to tune quality vs cost
+effort = EffortConfig(level=3)   # default level; use 0-10 to tune quality vs cost
 
 # Or fully custom
 effort = EffortConfig(
@@ -140,7 +140,7 @@ effort = EffortConfig(
 
 ### `EffortConfig(type="auto")` — agent-determined level
 
-The `analyze_task_effort_agent` reads the task instructions and a sample of workspace files, then selects a level from 1–10 and calls `resolveEffortConfig` internally. No detail fields may be set alongside `type="auto"`.
+The `effort_analyze_auto_agent` reads the task instructions and a sample of workspace files, then selects a level from 1–10 and calls `resolveEffortConfig` internally. No detail fields may be set alongside `type="auto"`.
 
 ### Level presets (`resolveEffortConfig`)
 
@@ -184,7 +184,7 @@ def model_factory(agent_name: str):
 config = DeepWorkflowConfig(model=model_factory, ...)
 ```
 
-Agent names: `analyze_task_effort_agent`, `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_convergence_agent`, `evaluate_batch_quality_agent`, `reduce_consolidate_agent`.
+Agent names: `effort_analyze_auto_agent`, `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_convergence_agent`, `evaluate_batch_quality_agent`, `reduce_consolidate_agent`.
 
 ## task_files — Existing Files Only
 
@@ -260,7 +260,7 @@ deepworkflow --config deepworkflow.yml --loglevel info
 
 Sample INFO output:
 ```
-> analyze_task_effort_agent [level=5]
+> effort_analyze_auto_agent [level=5]
   > elapsed: 3s
 > map_batches_agent
   > elapsed: 5s

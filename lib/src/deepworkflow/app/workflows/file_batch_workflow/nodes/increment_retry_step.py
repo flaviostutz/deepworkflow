@@ -14,7 +14,7 @@ def increment_retry_step(state: file_batch_workflow_state) -> dict:
     # be counted.
     effort_config = state.get("effort_config")
     max_retries = effort_config.evaluate_batch_quality_max_retries if effort_config is not None else 0
-    if new_retry_count <= max_retries:
+    if max_retries is not None and new_retry_count <= max_retries:
         stats = _stats_var.get()
         if stats is not None:
             stats.quality_retries += 1

@@ -12,7 +12,7 @@ def _make_state(**overrides) -> dict:
         "cumulative_files_written": [],
         "files_read": [],
         "files_written": [],
-        "plan_output": "some plan",
+        "batch_plan": "some plan",
         "execute_output": "some output",
         "execute_messages": [{"role": "user", "content": "hi"}],
     }
@@ -53,9 +53,9 @@ class TestIncrementBatchRepeatStep:
         result = increment_batch_repeat_step(state)
         assert result["cumulative_files_read"] == ["existing.py"]
 
-    def test_resets_plan_output(self):
-        result = increment_batch_repeat_step(_make_state(plan_output="some plan"))
-        assert result["plan_output"] == ""
+    def test_resets_batch_plan(self):
+        result = increment_batch_repeat_step(_make_state(batch_plan="some plan"))
+        assert result["batch_plan"] == ""
 
     def test_resets_execute_output(self):
         result = increment_batch_repeat_step(_make_state(execute_output="some output"))

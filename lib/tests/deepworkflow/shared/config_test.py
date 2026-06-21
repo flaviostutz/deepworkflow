@@ -40,7 +40,7 @@ class TestDeepWorkflowConfig:
             workspace_write_option=WriteOption.READ_ONLY,
         )
         assert config.effort.level == 3
-        assert config.effort.type == "custom"
+        assert config.effort.type == "static"
 
     def test_full_config(self):
         config = _make_config(
@@ -95,6 +95,18 @@ class TestResolveEffortConfig:
         assert ec.evaluate_batch_quality_max_retries == 0
         assert ec.evaluate_batch_convergence_max_retries == 0
         assert ec.skip_batch_plan is True
+        assert ec.skip_reflect is False
+        assert ec.max_batches == 1
+
+    def test_level_0_one_shot(self):
+        ec = resolveEffortConfig(0)
+        assert ec.map_batches_mode == "static"
+        assert ec.consolidate_mode == "static"
+        assert ec.evaluate_map_max_retries == 0
+        assert ec.evaluate_batch_quality_max_retries == 0
+        assert ec.evaluate_batch_convergence_max_retries == 0
+        assert ec.skip_batch_plan is True
+        assert ec.skip_reflect is True
         assert ec.max_batches == 1
 
     def test_level_10_all_agent(self):
@@ -124,9 +136,9 @@ class TestResolveEffortConfig:
         assert ec.skip_batch_plan is True
 
     def test_invalid_level_raises(self):
-        with pytest.raises(ValueError, match="level must be between 1 and 10"):
-            resolveEffortConfig(0)
-        with pytest.raises(ValueError, match="level must be between 1 and 10"):
+        with pytest.raises(ValueError, match="level must be between 0 and 10"):
+            resolveEffortConfig(-1)
+        with pytest.raises(ValueError, match="level must be between 0 and 10"):
             resolveEffortConfig(11)
 
     def test_returns_effort_config_instance(self):

@@ -80,55 +80,72 @@ class JudgeVerdict:
 
 
 def _level_defaults(level: int) -> dict:
-    """Return fully-resolved default field values for an effort level (1-10)."""
+    """Return fully-resolved default field values for an effort level (0-10)."""
     _max = 10
-    retries = round((level - 1) * _max / (_max - 1))
-    mode: Literal["agent", "static"] = "agent" if level >= 4 else "static"
-    skip_plan = level < 6
+    retries = round((level - 1) * _max / (_max - 1)) if level >= 1 else 0
+    mode: Literal["agent", "static"] = "agent" if level >= 4 else "static"  # noqa: PLR2004
+    skip_plan = level < 6  # noqa: PLR2004
 
     base: dict = {
-        "evaluate_quality_min": JudgeLevel.WARNING,
-        "evaluate_quality_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
-        "evaluate_quality_batch_instructions": None,
+        "batch_evaluate_min": JudgeLevel.WARNING,
+        "batch_evaluate_on_max_retries": OnMaxRetriesExceeded.CONTINUE,
+        "batch_evaluate_quality_instructions": None,
     }
+
+    if level == 0:
+        return {
+            **base,
+            "map_plan_mode": "static",
+            "max_batches": 1,
+            "max_files_per_batch": None,
+            "map_evaluate_max_retries": 0,
+            "batch_skip_plan": True,
+            "batch_skip_reflect": True,
+            "batch_evaluate_convergence_max_retries": 0,
+            "batch_evaluate_quality_max_retries": 0,
+            "reduce_mode": "static",
+        }
 
     if level == 1:
         return {
             **base,
-            "map_batches_mode": "static",
+            "map_plan_mode": "static",
             "max_batches": 1,
             "max_files_per_batch": None,
-            "evaluate_map_max_retries": 0,
-            "skip_batch_plan": True,
-            "evaluate_batch_convergence_max_retries": 0,
-            "evaluate_batch_quality_max_retries": 0,
-            "consolidate_mode": "static",
+            "map_evaluate_max_retries": 0,
+            "batch_skip_plan": True,
+            "batch_skip_reflect": False,
+            "batch_evaluate_convergence_max_retries": 0,
+            "batch_evaluate_quality_max_retries": 0,
+            "reduce_mode": "static",
         }
 
     if mode == "static":  # levels 2-3
         return {
             **base,
-            "map_batches_mode": "static",
+            "map_plan_mode": "static",
             "max_batches": None,
             "max_files_per_batch": 10,
-            "evaluate_map_max_retries": 0,
-            "skip_batch_plan": skip_plan,
-            "evaluate_batch_convergence_max_retries": 0,
-            "evaluate_batch_quality_max_retries": retries,
-            "consolidate_mode": "static",
+            "map_evaluate_max_retries": 0,
+            "batch_skip_plan": skip_plan,
+            "batch_skip_reflect": False,
+            "batch_evaluate_convergence_max_retries": 0,
+            "batch_evaluate_quality_max_retries": retries,
+            "reduce_mode": "static",
         }
 
     # levels 4-10 (agent mode)
     return {
         **base,
-        "map_batches_mode": "agent",
+        "map_plan_mode": "agent",
         "max_batches": None,
         "max_files_per_batch": None,
-        "evaluate_map_max_retries": retries,
-        "skip_batch_plan": skip_plan,
-        "evaluate_batch_convergence_max_retries": retries,
-        "evaluate_batch_quality_max_retries": retries,
-        "consolidate_mode": "agent",
+        "map_evaluate_max_retries": retries,
+        "batch_skip_plan": skip_plan,
+        "batch_skip_reflect": False,
+        "batch_evaluate_convergence_max_retries": retries,
+        "batch_evaluate_quality_max_retries": retries,
+        "reduce_mode": "agent",
     }
 
 
@@ -140,8 +157,8 @@ class EffortConfig:
     all agentic, maximum retries).  Any detail field set explicitly overrides its level-derived
     default; unset fields are resolved automatically in ``__post_init__``.
 
-    ``type`` controls whether the resolved config is used directly (``"custom"``) or whether a
-    specialized ``analyze_task_effort_agent`` derives the best configuration automatically
+    ``type`` controls whether the resolved config is used directly (``"static"``) or whether a
+    specialized ``effort_analyze_auto_agent`` derives the best configuration automatically
     (``"auto"``).  When ``type="auto"``, the agent inspects ``task_instructions`` and the
     workspace files to decide the optimal effort level and quality gates; quality-gate
     instructions written in the prompt (MUST / SHOULD / COULD language) are automatically
@@ -153,29 +170,30 @@ class EffortConfig:
         EffortConfig(level=5)
 
         # Level preset with quality overrides
-        EffortConfig(level=5, evaluate_quality_min=JudgeLevel.OK)
+        EffortConfig(level=5, batch_evaluate_min=JudgeLevel.OK)
 
         # Fully custom — override whatever is needed
-        EffortConfig(level=3, map_batches_mode="static", max_files_per_batch=20)
+        EffortConfig(level=3, map_plan_mode="static", max_files_per_batch=20)
 
         # Let an agent decide automatically
         EffortConfig(type="auto")
     """
 
     level: int = 3
-    """Base effort preset (1-10).  Used when ``type="custom"``.
+    """Base effort preset (0-10).  Used when ``type="static"``.
 
-    - Level 1: single-batch, all evaluations skipped (fastest / cheapest).
+    - Level 0: true one-shot — exactly one LLM call (execute_batch_agent only; reflect skipped).
+    - Level 1: single-batch, reflect enabled, all quality evaluations skipped.
     - Level 3: default when ``effort`` is omitted entirely.
     - Level 10: maximum evaluations and retries (highest quality, most expensive).
     """
 
-    type: Literal["auto", "custom"] = "custom"
+    type: Literal["auto", "static"] = "static"
     """How to determine effort.
 
-    - ``"custom"`` (default): resolve detail fields from ``level``, applying any explicit
+    - ``"static"`` (default): resolve detail fields from ``level``, applying any explicit
       overrides.
-    - ``"auto"``: a specialized ``analyze_task_effort_agent`` analyses
+    - ``"auto"``: a specialized ``effort_analyze_auto_agent`` analyses
       ``task_instructions`` and the workspace to decide the optimal level and quality gates.
       Quality-gate instructions embedded in the prompt (MUST / SHOULD / COULD language) are
       automatically used to configure evaluation criteria.  ``level`` and all detail fields
@@ -188,7 +206,7 @@ class EffortConfig:
     # After construction every field is fully resolved.
     # ------------------------------------------------------------------
 
-    map_batches_mode: Literal["agent", "static"] | None = None
+    map_plan_mode: Literal["agent", "static"] | None = None
     """Whether to use an LLM agent or a deterministic algorithm to split files into batches.
     Resolved from ``level`` if not set."""
 
@@ -201,36 +219,41 @@ class EffortConfig:
     ``map_batches_mode="static"`` unless ``max_batches=1``.
     Resolved from ``level`` if not set (``_UNSET`` default)."""
 
-    evaluate_map_max_retries: int | None = None
+    map_evaluate_max_retries: int | None = None
     """Max retries for the map evaluation loop.  ``0`` skips LLM map evaluation entirely.
     Resolved from ``level`` if not set."""
 
-    skip_batch_plan: bool | None = None
-    """When ``True``, skip the plan_batch_agent and inject a planning instruction into the
-    execute_batch_agent prompt.  Resolved from ``level`` if not set."""
+    batch_skip_plan: bool | None = None
+    """When ``True``, skip the batch_plan_agent and inject a planning instruction into the
+    batch_execute_agent prompt.  Resolved from ``level`` if not set."""
 
-    evaluate_batch_convergence_max_retries: int | None = None
+    batch_skip_reflect: bool | None = None
+    """When ``True``, skip the batch_reflect_agent and record empty batch_files_read/batch_files_written.
+    Use with ``level=0`` for a true one-shot single-LLM-call run.
+    Resolved from ``level`` if not set."""
+
+    batch_evaluate_convergence_max_retries: int | None = None
     """Max additional plan→execute→reflect passes per batch.  ``0`` disables the repeat loop.
     Resolved from ``level`` if not set."""
 
-    evaluate_batch_quality_max_retries: int | None = None
+    batch_evaluate_quality_max_retries: int | None = None
     """Max retries for the per-batch quality evaluation loop.  ``0`` skips quality evaluation.
     Resolved from ``level`` if not set."""
 
-    consolidate_mode: Literal["agent", "static"] | None = None
+    reduce_mode: Literal["agent", "static"] | None = None
     """Whether to use an LLM agent or a deterministic formatter for final consolidation.
     Resolved from ``level`` if not set."""
 
-    evaluate_quality_min: JudgeLevel | None = None
-    """Minimum evaluate_quality verdict required to accept a batch result.
+    batch_evaluate_min: JudgeLevel | None = None
+    """Minimum batch_evaluate_quality verdict required to accept a batch result.
     Resolved from ``level`` if not set (default: ``JudgeLevel.WARNING``)."""
 
-    evaluate_quality_on_max_retries: OnMaxRetriesExceeded | None = None
-    """Behaviour when max retries are exhausted without meeting ``evaluate_quality_min``.
+    batch_evaluate_on_max_retries: OnMaxRetriesExceeded | None = None
+    """Behaviour when max retries are exhausted without meeting ``batch_evaluate_min``.
     Resolved from ``level`` if not set (default: ``CONTINUE``)."""
 
-    evaluate_quality_batch_instructions: str | None = None
-    """Custom quality criteria for the evaluate quality agent.  Use MUST / SHOULD / COULD
+    batch_evaluate_quality_instructions: str | None = None
+    """Custom quality criteria for the batch_evaluate_quality_agent.  Use MUST / SHOULD / COULD
     language to mark findings as ERROR / WARNING / INFO.  ``None`` applies the default
     quality check."""
 
@@ -239,17 +262,18 @@ class EffortConfig:
     # ------------------------------------------------------------------
 
     _DETAIL_FIELDS = (
-        "map_batches_mode",
+        "map_plan_mode",
         "max_batches",
         "max_files_per_batch",
-        "evaluate_map_max_retries",
-        "skip_batch_plan",
-        "evaluate_batch_convergence_max_retries",
-        "evaluate_batch_quality_max_retries",
-        "consolidate_mode",
-        "evaluate_quality_min",
-        "evaluate_quality_on_max_retries",
-        "evaluate_quality_batch_instructions",
+        "map_evaluate_max_retries",
+        "batch_skip_plan",
+        "batch_skip_reflect",
+        "batch_evaluate_convergence_max_retries",
+        "batch_evaluate_quality_max_retries",
+        "reduce_mode",
+        "batch_evaluate_min",
+        "batch_evaluate_on_max_retries",
+        "batch_evaluate_quality_instructions",
     )
 
     def __post_init__(self) -> None:
@@ -264,8 +288,8 @@ class EffortConfig:
             return  # leave detail fields at None / _UNSET; agent will provide them
 
         # --- Validate level ---
-        if not 1 <= self.level <= 10:
-            msg = f"EffortConfig: level must be between 1 and 10, got {self.level}"
+        if not 0 <= self.level <= 10:  # noqa: PLR2004
+            msg = f"EffortConfig: level must be between 0 and 10, got {self.level}"
             raise ValueError(msg)
 
         # --- Resolve unset fields from level defaults ---
@@ -276,9 +300,9 @@ class EffortConfig:
                 object.__setattr__(self, name, default_val)
 
         # --- Validate static mode constraint ---
-        if self.map_batches_mode == "static" and self.max_files_per_batch is None and self.max_batches != 1:
+        if self.map_plan_mode == "static" and self.max_files_per_batch is None and self.max_batches != 1:
             msg = (
-                "EffortConfig: max_files_per_batch is required when map_batches_mode='static', "
+                "EffortConfig: max_files_per_batch is required when map_plan_mode='static', "
                 "unless max_batches=1 (single-batch mode)."
             )
             raise ValueError(msg)
@@ -296,12 +320,12 @@ class BatchDefinition:
 class BatchOutput:
     """Output produced per batch execution."""
 
-    task_files: list[str]
-    evaluate_quality_verdict: JudgeLevel
-    evaluate_quality_feedbacks: list[EvaluateFeedback]
-    files_read: list[str]
-    files_written: list[str]
-    execute_output: str
+    batch_files: list[str]
+    evaluate_level: JudgeLevel
+    evaluate_feedbacks: list[EvaluateFeedback]
+    batch_files_read: list[str]
+    batch_files_written: list[str]
+    batch_execute_output: str
 
 
 @dataclass(frozen=True)

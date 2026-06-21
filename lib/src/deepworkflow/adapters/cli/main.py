@@ -130,14 +130,49 @@ def _build_config(
     )
 
 
+def _collect_effort_overrides(ec_raw: dict) -> dict:
+    """Extract explicitly-set EffortConfig detail fields from a raw YAML dict."""
+    from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded
+
+    overrides: dict = {}
+
+    # Nullable int fields (None means "no limit" not "unset", so explicit null is valid)
+    for key in ("max_batches", "max_files_per_batch"):
+        if key in ec_raw:
+            overrides[key] = ec_raw[key]  # None or int
+
+    for key in ("map_batches_mode", "consolidate_mode", "evaluate_quality_batch_instructions"):
+        if key in ec_raw:
+            overrides[key] = ec_raw[key]
+
+    for key in (
+        "evaluate_map_max_retries",
+        "evaluate_batch_convergence_max_retries",
+        "evaluate_batch_quality_max_retries",
+    ):
+        if key in ec_raw:
+            overrides[key] = int(ec_raw[key])
+
+    if "skip_batch_plan" in ec_raw:
+        overrides["skip_batch_plan"] = bool(ec_raw["skip_batch_plan"])
+    if "evaluate_quality_min" in ec_raw:
+        overrides["evaluate_quality_min"] = JudgeLevel[ec_raw["evaluate_quality_min"].upper()]
+    if "evaluate_quality_on_max_retries" in ec_raw:
+        overrides["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(
+            ec_raw["evaluate_quality_on_max_retries"].lower()
+        )
+
+    return overrides
+
+
 def _build_effort_config(raw: dict) -> EffortConfig:
     """Build an EffortConfig from the raw YAML dict.
 
     YAML format::
 
-        effort:           # optional block; defaults to EffortConfig() = level=3, type=custom
-          level: 3        # 1-10 preset (used when type=custom)
-          type: custom    # "custom" (default) or "auto"
+        effort:           # optional block; defaults to EffortConfig() = level=3, type=static
+          level: 3        # 0-10 preset (used when type=static)
+          type: static    # "static" (default) or "auto"
           # Any EffortConfig detail field can be added to override the level default:
           map_batches_mode: agent
           max_batches: null
@@ -157,52 +192,19 @@ def _build_effort_config(raw: dict) -> EffortConfig:
     automatically used to configure evaluation criteria.  No other fields may be
     set alongside ``type: auto``.
     """
-    from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded
-
     ec_raw = raw.get("effort")
 
     if ec_raw is None:
-        # Default: EffortConfig() = level=3, type=custom, all fields resolved from level
+        # Default: EffortConfig() = level=3, type=static, all fields resolved from level
         return EffortConfig()
 
     if not isinstance(ec_raw, dict):
         msg = "'effort' in config file must be a dict, e.g.:\n  effort:\n    level: 3"
         raise TypeError(msg)
 
-    effort_type: str = ec_raw.get("type", "custom").lower()
+    effort_type: str = ec_raw.get("type", "static").lower()
     level = int(ec_raw.get("level", 3))
-
-    # Collect only the keys explicitly present in the YAML (excluding type/level)
-    kwargs: dict = {"level": level, "type": effort_type}
-
-    _UNSET_STR = "__MISSING__"
-
-    # Nullable int fields (None means "no limit" not "unset", so explicit null is valid)
-    for key in ("max_batches", "max_files_per_batch"):
-        if key in ec_raw:
-            kwargs[key] = ec_raw[key]  # None or int
-
-    if "map_batches_mode" in ec_raw:
-        kwargs["map_batches_mode"] = ec_raw["map_batches_mode"]
-    if "consolidate_mode" in ec_raw:
-        kwargs["consolidate_mode"] = ec_raw["consolidate_mode"]
-    if "evaluate_map_max_retries" in ec_raw:
-        kwargs["evaluate_map_max_retries"] = int(ec_raw["evaluate_map_max_retries"])
-    if "skip_batch_plan" in ec_raw:
-        kwargs["skip_batch_plan"] = bool(ec_raw["skip_batch_plan"])
-    if "evaluate_batch_convergence_max_retries" in ec_raw:
-        kwargs["evaluate_batch_convergence_max_retries"] = int(ec_raw["evaluate_batch_convergence_max_retries"])
-    if "evaluate_batch_quality_max_retries" in ec_raw:
-        kwargs["evaluate_batch_quality_max_retries"] = int(ec_raw["evaluate_batch_quality_max_retries"])
-    if "evaluate_quality_min" in ec_raw:
-        kwargs["evaluate_quality_min"] = JudgeLevel[ec_raw["evaluate_quality_min"].upper()]
-    if "evaluate_quality_on_max_retries" in ec_raw:
-        kwargs["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(
-            ec_raw["evaluate_quality_on_max_retries"].lower()
-        )
-    if "evaluate_quality_batch_instructions" in ec_raw:
-        kwargs["evaluate_quality_batch_instructions"] = ec_raw["evaluate_quality_batch_instructions"]
-
+    kwargs: dict = {"level": level, "type": effort_type, **_collect_effort_overrides(ec_raw)}
     return EffortConfig(**kwargs)
 
 

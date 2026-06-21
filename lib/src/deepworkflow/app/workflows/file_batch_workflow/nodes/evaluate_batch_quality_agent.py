@@ -73,15 +73,26 @@ def evaluate_batch_quality_agent(state: file_batch_workflow_state) -> dict:
 
     evaluate_quality_instructions = state["evaluate_quality_batch_instructions"]
 
+    # Merge cumulative + current-pass values so quality is evaluated against ALL work done
+    cumulative_execute_output = state.get("cumulative_execute_output", "")
+    current_execute_output = state.get("execute_output", "")
+    if cumulative_execute_output and current_execute_output:
+        full_execute_output = cumulative_execute_output + "\n---\n" + current_execute_output
+    else:
+        full_execute_output = current_execute_output or cumulative_execute_output
+
+    files_read = list(state.get("cumulative_files_read", [])) + list(state.get("files_read", []))
+    files_written = list(state.get("cumulative_files_written", [])) + list(state.get("files_written", []))
+
     prompt = build_agent_prompt(
         objective=_OBJECTIVE,
         role=_ROLE,
         input_section=_INPUT_TEMPLATE.format(
             task_instructions=config.task_instructions,
             batch_files="\n".join(current_batch.batch_files),
-            execute_output=state["execute_output"],
-            files_read=", ".join(state.get("files_read", [])),
-            files_written=", ".join(state.get("files_written", [])),
+            execute_output=full_execute_output,
+            files_read=", ".join(files_read),
+            files_written=", ".join(files_written),
             evaluate_quality_instructions=evaluate_quality_instructions,
         ),
         steps=_STEPS,

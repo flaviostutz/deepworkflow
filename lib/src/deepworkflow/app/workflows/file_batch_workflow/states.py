@@ -13,44 +13,47 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     config: DeepWorkflowConfig
     effort_config: EffortConfig
 
-    # Phase 1: Map
-    task_files: list[str]
-    task_file_batches: list[BatchDefinition]
-    task_overview: str
-    consolidation_instructions: str
-    evaluate_quality_batch_instructions: str
+    # Map: setup
+    map_files: list[str]
 
-    # Map evaluate
-    map_evaluate_quality_verdict: JudgeLevel
-    map_evaluate_judge_verdict: JudgeVerdict
-    map_retry_count: int
+    # Map: plan
+    map_batches: list[BatchDefinition]
+    map_plan_overview: str
+    reduce_instructions: str
+    batch_evaluate_quality_instructions: str
 
-    # Iteration tracking
-    current_batch_index: int
-    retry_count: int
-    batch_repeat_count: int
+    # Map: evaluate
+    map_evaluate_level: JudgeLevel
+    map_evaluate_verdict: JudgeVerdict
+    map_evaluate_retry_count: int
 
-    # Phase 2: Plan/Execute/Reflect/Judge (per-batch, reset each iteration)
-    plan_output: str
-    execute_output: str
-    execute_messages: list[Any]
-    files_read: list[str]
-    files_written: list[str]
-    evaluate_quality_verdict: JudgeLevel
-    evaluate_quality_judge_verdict: JudgeVerdict
-    batch_convergence_output: str
-    batch_convergence_verdict: JudgeVerdict
+    # Batch: tracking
+    batch_current_index: int
+    batch_quality_retry_count: int
+    batch_convergence_repeat_count: int
 
-    # Accumulated results across batch-repeat passes
-    cumulative_files_read: list[str]
-    cumulative_files_written: list[str]
-    previous_execute_output: str
+    # Batch: per-iteration (reset each iteration)
+    batch_plan: str
+    batch_execute_output: str
+    batch_execute_messages: list[Any]
+    batch_files_read: list[str]
+    batch_files_written: list[str]
+    batch_evaluate_level: JudgeLevel
+    batch_evaluate_verdict: JudgeVerdict
+    batch_evaluate_feedbacks: list
+    batch_evaluate_convergence_output: str
+    batch_evaluate_convergence_verdict: JudgeVerdict
 
-    # Accumulated results
-    batch_outputs: list[BatchOutput]
+    # Batch: cumulative (across batch-repeat passes)
+    batch_cumulative_files_read: list[str]
+    batch_cumulative_files_written: list[str]
+    batch_cumulative_output: str
 
-    # Phase 3: Reduce
-    workflow_output: str
+    # Batch: outputs
+    batch_results: list[BatchOutput]
+
+    # Reduce
+    reduce_output: str
 
     # Error state
     error: str | None

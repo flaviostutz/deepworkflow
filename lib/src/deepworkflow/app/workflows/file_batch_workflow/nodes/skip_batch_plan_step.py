@@ -13,10 +13,10 @@ _PLAN_INSTRUCTION = (
 
 
 def skip_batch_plan_step(state: file_batch_workflow_state) -> dict:  # noqa: ARG001
-    """Inject a self-planning instruction into plan_output instead of running plan_batch_agent.
+    """Inject a self-planning instruction into batch_plan instead of running plan_batch_agent.
 
     When ``effort_config.skip_batch_plan=True`` the separate planning agent is skipped.
-    This step sets ``plan_output`` to a directive that instructs the execute_batch_agent
+    This step sets ``batch_plan`` to a directive that instructs the execute_batch_agent
     to plan its own actions before proceeding.
     """
-    return {"plan_output": _PLAN_INSTRUCTION}
+    return {"batch_plan": _PLAN_INSTRUCTION}

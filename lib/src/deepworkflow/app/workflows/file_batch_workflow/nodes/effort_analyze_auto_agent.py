@@ -17,7 +17,7 @@ computational effort this workflow should spend — then return a single integer
 between 1 and 10."""
 
 _ROLE = """\
-You are the `analyze_task_effort_agent`.  You are an expert at estimating the complexity and
+You are the `effort_analyze_auto_agent`.  You are an expert at estimating the complexity and
 risk of a task so that the right amount of LLM evaluation and iteration is applied."""
 
 _INPUT_TEMPLATE = """\
@@ -60,7 +60,7 @@ Respond with exactly one JSON object:
 _LEVEL_RE = re.compile(r'"level"\s*:\s*([1-9]|10)')
 
 
-def analyze_task_effort_agent(state: file_batch_workflow_state) -> dict:
+def effort_analyze_auto_agent(state: file_batch_workflow_state) -> dict:
     """Analyse the task and files to automatically select an effort level 1-10."""
     config = state["config"]
     task_files = state.get("task_files") or []
@@ -81,7 +81,7 @@ def analyze_task_effort_agent(state: file_batch_workflow_state) -> dict:
     )
 
     agent = create_agent(
-        model=config.model("analyze_task_effort_agent"),
+        model=config.model("effort_analyze_auto_agent"),
         system_prompt=prompt,
         workspace_dir=config.workspace_dir,
         write_option=WriteOption.READ_ONLY,

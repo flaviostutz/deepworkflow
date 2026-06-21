@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from deepagents import create_deep_agent
 
@@ -28,11 +28,11 @@ def bind_json_mode(model: BaseChatModel) -> BaseChatModel:
         which require a plain ``BaseChatModel``.
     """
     try:
-        provider = model._get_ls_params().get("ls_provider", "")
+        provider = model._get_ls_params().get("ls_provider", "")  # noqa: SLF001
     except Exception:  # noqa: BLE001
         provider = ""
     if provider in ("openai", "azure"):
-        return model.bind(response_format={"type": "json_object"})  # type: ignore[return-value]
+        return cast("BaseChatModel", model.bind(response_format={"type": "json_object"}))
     return model
 
 
@@ -42,7 +42,7 @@ def create_agent(
     system_prompt: str,
     workspace_dir: str,
     write_option: WriteOption = WriteOption.READ_ONLY,
-    json_mode: bool = False,
+    json_mode: bool = False,  # noqa: ARG001
 ) -> CompiledStateGraph:
     """Create a deepagent configured for use within the workflow.
 

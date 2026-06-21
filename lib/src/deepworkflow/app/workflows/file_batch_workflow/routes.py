@@ -7,11 +7,11 @@ from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExce
 # ---------------------------------------------------------------------------
 
 
-def route_effort_config(state: dict) -> Literal["analyze_task_effort_agent", "set_effort_config_step"]:
+def route_effort_config(state: dict) -> Literal["effort_analyze_auto_agent", "effort_static_step"]:
     """Route: derive effort config automatically or use the user-supplied one."""
     if state["config"].effort.type == "auto":
-        return "analyze_task_effort_agent"
-    return "set_effort_config_step"
+        return "effort_analyze_auto_agent"
+    return "effort_static_step"
 
 
 def route_map_batches_mode(state: dict) -> Literal["map_batches_agent", "map_batches_step"]:
@@ -54,6 +54,13 @@ def route_validate_map_limits(
 def route_plan_batch(state: dict) -> Literal["plan_batch_agent", "skip_batch_plan_step"]:
     """Route: run plan agent or inject planning instruction into execute prompt."""
     return _route_plan(state["effort_config"])
+
+
+def route_after_execute(state: dict) -> Literal["reflect_batch_agent", "skip_reflect_batch_step"]:
+    """Route: run reflect agent or skip it (level 0 one-shot mode)."""
+    if state["effort_config"].skip_reflect:
+        return "skip_reflect_batch_step"
+    return "reflect_batch_agent"
 
 
 def _route_plan(effort_config: EffortConfig) -> Literal["plan_batch_agent", "skip_batch_plan_step"]:  # type: ignore[misc]

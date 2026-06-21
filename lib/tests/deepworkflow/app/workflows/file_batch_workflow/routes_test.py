@@ -8,6 +8,7 @@ from deepworkflow.app.workflows.file_batch_workflow.routes import (
     check_retries,
     check_verdict,
     next_batch,
+    route_after_execute,
     route_after_map_verdict,
     route_after_reflect,
     route_batch_evaluate_quality,
@@ -281,3 +282,21 @@ class TestRouteAfterMapVerdict:
         effort = _make_effort(skip_batch_plan=False, evaluate_quality_min=JudgeLevel.WARNING)
         state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
         assert route_after_map_verdict(state) == "retry_or_fail"
+
+
+class TestRouteAfterExecute:
+    def test_skip_reflect_when_skip_reflect_true(self):
+        effort = _make_effort(skip_reflect=True)
+        assert route_after_execute({"effort_config": effort}) == "skip_reflect_batch_step"
+
+    def test_reflect_agent_when_skip_reflect_false(self):
+        effort = _make_effort(skip_reflect=False)
+        assert route_after_execute({"effort_config": effort}) == "reflect_batch_agent"
+
+    def test_level_0_routes_to_skip_reflect(self):
+        effort = EffortConfig(level=0)
+        assert route_after_execute({"effort_config": effort}) == "skip_reflect_batch_step"
+
+    def test_level_1_routes_to_reflect_agent(self):
+        effort = EffortConfig(level=1)
+        assert route_after_execute({"effort_config": effort}) == "reflect_batch_agent"

@@ -300,12 +300,12 @@ class TestLogCallbacks:
 
     def test_plan_batch_post_info_truncates(self):
         long_plan = " ".join(["word"] * 50)
-        lines = _log_plan_batch_post({}, {"plan_output": long_plan}, WorkflowLogLevel.INFO)
+        lines = _log_plan_batch_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.INFO)
         assert "…" in lines[0]
 
     def test_plan_batch_post_debug_full(self):
         long_plan = " ".join(["word"] * 50)
-        lines = _log_plan_batch_post({}, {"plan_output": long_plan}, WorkflowLogLevel.DEBUG)
+        lines = _log_plan_batch_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.DEBUG)
         assert lines[0] == f"plan: {long_plan}"
 
     def test_execute_batch_post_info_truncates(self):

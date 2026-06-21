@@ -64,7 +64,7 @@ def _make_state(config: DeepWorkflowConfig | None = None, **overrides) -> dict:
         "current_batch_index": 0,
         "task_file_batches": [BatchDefinition(batch_files=["a.py"], batch_instructions="do it")],
         "execute_messages": [],
-        "previous_execute_output": "prior pass did some work",
+        "cumulative_execute_output": "prior pass did some work",
     }
     defaults.update(overrides)
     return defaults
@@ -72,7 +72,7 @@ def _make_state(config: DeepWorkflowConfig | None = None, **overrides) -> dict:
 
 class TestFirstPassBypass:
     def test_no_llm_call_on_first_pass(self):
-        """When previous_execute_output is absent, no LLM is invoked."""
+        """When cumulative_execute_output is absent, no LLM is invoked."""
         called: list[str] = []
 
         def recording_factory(agent_name: str) -> FakeListChatModel:
@@ -86,7 +86,7 @@ class TestFirstPassBypass:
             workspace_write_option=WriteOption.READ_ONLY,
             effort=EffortConfig(level=5),
         )
-        state = _make_state(config=config, previous_execute_output="")
+        state = _make_state(config=config, cumulative_execute_output="")
         result = evaluate_batch_convergence_agent(state)
 
         assert called == [], "LLM must not be invoked on first pass"
@@ -94,7 +94,7 @@ class TestFirstPassBypass:
 
     def test_first_pass_returns_warning_verdict(self):
         config, _ = _make_config()
-        state = _make_state(config=config, previous_execute_output="")
+        state = _make_state(config=config, cumulative_execute_output="")
         result = evaluate_batch_convergence_agent(state)
         verdict = result["batch_convergence_verdict"]
         assert isinstance(verdict, JudgeVerdict)
@@ -103,7 +103,7 @@ class TestFirstPassBypass:
         assert verdict.findings[0].title
 
     def test_first_pass_missing_key_also_bypasses(self):
-        """State with no previous_execute_output key at all is treated as first pass."""
+        """State with no cumulative_execute_output key at all is treated as first pass."""
         config, _ = _make_config()
         state = {
             "config": config,

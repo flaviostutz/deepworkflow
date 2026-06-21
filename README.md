@@ -203,7 +203,7 @@ result = run_workflow(config, thread_id=result.thread_id, checkpoint_dir="./chec
 | `workspace_write_option` | no | `read-only` | `read-only`, `write-any`, or `write-only-task-files` |
 | `effort` | no | level 3 preset | Effort controls (see Full YAML Reference below) |
 | `effort.level` | no | 3 | Preset 1–10; detail fields can be added alongside |
-| `effort.type` | no | `custom` | `custom` (use level+fields) or `auto` (agent-derived) |
+| `effort.type` | no | `static` | `static` (use level+fields) or `auto` (agent-derived) |
 | `effort.evaluate_quality_min` | no | `WARNING` | Min verdict to accept: `OK`, `INFO`, `WARNING`, `ERROR` |
 | `effort.evaluate_quality_on_max_retries` | no | `continue` | Behavior on exhausted retries: `fail` or `continue` |
 | `effort.evaluate_quality_batch_instructions` | no | standard | Custom quality criteria for the evaluate quality agent |
@@ -324,15 +324,15 @@ workspace_write_option: read-only
 
 # Effort controls. Use level: N (1–10) as a shorthand for a preset, or specify
 # every field individually for fine-grained control.
-# type: custom (default) — use level + optional detail fields below
-# type: auto             — an analyze_task_effort_agent derives the config automatically;
+# type: static (default) — use level + optional detail fields below
+# type: auto             — an effort_analyze_auto_agent derives the config automatically;
 #                          no other fields may be set alongside type: auto
 #   level 1 = single-batch, all evaluations skipped (fastest/cheapest)
 #   level 3 = default when effort is omitted
 #   level 10 = maximum evaluations and retries (highest quality, most expensive)
 effort:
   level: 3
-  type: custom
+  type: static
 
   # agent  — use an LLM to split files into batches (recommended for complex tasks)
   # static — split files deterministically by max_files_per_batch

@@ -6,13 +6,13 @@ A LangGraph workflow that processes files in batches using a Map → Plan/Execut
 
 ```mermaid
 graph TD
-    resolve_globs_step --> |custom| set_effort_config_step
-    resolve_globs_step --> |auto| analyze_task_effort_agent
+    resolve_globs_step --> |static| effort_static_step
+    resolve_globs_step --> |auto| effort_analyze_auto_agent
 
-    set_effort_config_step --> |agent| map_batches_agent
-    set_effort_config_step --> |step| map_batches_step
-    analyze_task_effort_agent --> |agent| map_batches_agent
-    analyze_task_effort_agent --> |step| map_batches_step
+    effort_static_step --> |agent| map_batches_agent
+    effort_static_step --> |step| map_batches_step
+    effort_analyze_auto_agent --> |agent| map_batches_agent
+    effort_analyze_auto_agent --> |step| map_batches_step
 
     map_batches_agent --> validate_map_batches_step
     map_batches_step --> validate_map_batches_step
@@ -32,7 +32,10 @@ graph TD
 
     plan_batch_agent --> execute_batch_agent
     skip_batch_plan_step --> execute_batch_agent
-    execute_batch_agent --> reflect_batch_agent
+    execute_batch_agent --> |reflect| reflect_batch_agent
+    execute_batch_agent --> |skip| skip_reflect_batch_step
+
+    skip_reflect_batch_step --> skip_evaluate_quality_step
 
     reflect_batch_agent --> |evaluate_convergence| evaluate_batch_convergence_agent
     reflect_batch_agent --> |evaluate| evaluate_batch_quality_agent

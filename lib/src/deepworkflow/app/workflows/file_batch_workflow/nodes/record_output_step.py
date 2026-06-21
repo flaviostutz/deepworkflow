@@ -9,19 +9,19 @@ def record_output_step(state: file_batch_workflow_state) -> dict:
     batch_index = state["current_batch_index"]
     current_batch = state["task_file_batches"][batch_index]
 
-    # Merge cumulative files from all repeat passes with the final pass
+    # Accumulate the final pass into cumulative — same pattern as increment_batch_repeat_step.
+    # cumulative_* holds all previous passes; files_* / execute_output hold the last pass only.
     files_read = list(state.get("cumulative_files_read", [])) + list(state.get("files_read", []))
     files_written = list(state.get("cumulative_files_written", [])) + list(state.get("files_written", []))
 
-    # Merge execute_output from all repeat passes into one summary
-    previous_execute_output = state.get("previous_execute_output", "")
+    cumulative_execute_output = state.get("cumulative_execute_output", "")
     current_execute_output = state.get("execute_output", "")
-    if previous_execute_output and current_execute_output:
-        merged_execute_output = previous_execute_output + "\n---\n" + current_execute_output
-    elif previous_execute_output:
-        merged_execute_output = previous_execute_output
-    else:
+    if cumulative_execute_output and current_execute_output:
+        merged_execute_output = cumulative_execute_output + "\n---\n" + current_execute_output
+    elif current_execute_output:
         merged_execute_output = current_execute_output
+    else:
+        merged_execute_output = cumulative_execute_output
 
     output = BatchOutput(
         task_files=current_batch.batch_files,
@@ -43,5 +43,5 @@ def record_output_step(state: file_batch_workflow_state) -> dict:
         "batch_repeat_count": 0,
         "cumulative_files_read": [],
         "cumulative_files_written": [],
-        "previous_execute_output": "",
+        "cumulative_execute_output": "",
     }

@@ -109,7 +109,7 @@ def _patch_all(mocker, **overrides) -> None:
             mocker.patch(f"{_BASE}.{node}", return_value=value)
 
     _apply("resolve_globs_step", "resolve", {"task_files": ["a.py"]})
-    _apply("set_effort_config_step", "set_effort", {"effort_config": _make_effort()})
+    _apply("effort_static_step", "set_effort", {"effort_config": _make_effort()})
     _apply("map_batches_agent", "map_batch", _map_output(_single_batch()))
     _apply("validate_map_batches_step", "validate_map", {"error": None})
     _apply(
@@ -117,7 +117,7 @@ def _patch_all(mocker, **overrides) -> None:
         "eval_map",
         {"map_evaluate_quality_verdict": JudgeLevel.OK, "map_evaluate_quality_feedbacks": []},
     )
-    _apply("plan_batch_agent", "plan", {"plan_output": "plan"})
+    _apply("plan_batch_agent", "plan", {"batch_plan": "plan"})
     _apply("execute_batch_agent", "execute", {"execute_output": "done", "execute_messages": []})
     _apply("reflect_batch_agent", "reflect", {"files_read": [], "files_written": []})
     _apply(

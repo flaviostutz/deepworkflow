@@ -39,7 +39,7 @@ class _ModelRef:
 
 
 def resolveEffortConfig(level: int) -> EffortConfig:  # noqa: N802
-    """Return a fully-resolved ``EffortConfig`` for the given effort level (1-10).
+    """Return a fully-resolved ``EffortConfig`` for the given effort level (0-10).
 
     Equivalent to ``EffortConfig(level=level)``; kept as a public helper for backward
     compatibility with callers that build a resolved config for direct use.
@@ -90,13 +90,13 @@ class DeepWorkflowConfig:
     effort: EffortConfig = field(default_factory=EffortConfig)
     """Effort configuration for the workflow run.
 
-    Defaults to ``EffortConfig(level=3, type="custom")`` — a level-3 preset with all detail
+    Defaults to ``EffortConfig(level=3, type="static")`` — a level-3 preset with all detail
     fields resolved automatically.  Two modes are available:
 
-    - ``type="custom"`` (default): resolve detail fields from the numeric ``level`` preset
+    - ``type="static"`` (default): resolve detail fields from the numeric ``level`` preset
       (1-10), applying any explicit overrides.  E.g. ``EffortConfig(level=5)`` or
       ``EffortConfig(level=5, evaluate_quality_min=JudgeLevel.OK)``.
-    - ``type="auto"``: a specialized ``analyze_task_effort_agent`` inspects
+    - ``type="auto"``: a specialized ``effort_analyze_auto_agent`` inspects
       ``task_instructions`` and the workspace files to decide the optimal effort
       level and quality gates automatically.  Quality-gate instructions embedded
       in the prompt (MUST / SHOULD / COULD language) are automatically used to

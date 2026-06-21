@@ -134,6 +134,25 @@ Names MUST NOT use generic labels such as `node1`, `process`, or `run`. Each nam
 
 Judge nodes use a **prefix** convention instead of a suffix: the name MUST start with `evaluate_` followed by the subject being judged (e.g. `evaluate_progress`, `evaluate_quality`, `evaluate_completeness`, `evaluate_relevance`). This makes judge nodes immediately distinguishable from all other node types at a glance.
 
+**Grouping prefix for related nodes:** When multiple nodes deal with the same subject, entity, or workflow region, SHOULD use a shared grouping word as a prefix followed by a verb and the role suffix. The pattern is `<group>_<verb>_<role_suffix>`. This makes the graph topology scannable and clusters related nodes together alphabetically in logs, traces, and code.
+
+```python
+# Nodes grouped under the "invoice" subject
+def invoice_fetch_tool(state): ...       # fetches invoice data from an API
+def invoice_validate_step(state): ...    # validates invoice fields deterministically
+def invoice_summarize_llm(state): ...    # summarizes invoice content with an LLM
+def invoice_review_agent(state): ...     # runs an agent loop to review the invoice
+
+graph.add_node("invoice_fetch_tool", invoice_fetch_tool)
+graph.add_node("invoice_validate_step", invoice_validate_step)
+graph.add_node("invoice_summarize_llm", invoice_summarize_llm)
+graph.add_node("invoice_review_agent", invoice_review_agent)
+```
+
+The grouping prefix is optional for workflows where all nodes clearly belong to a single domain. It MUST be used when a workflow spans multiple subjects or regions (e.g. `invoice_*`, `payment_*`, `notification_*`) to prevent name collisions and to make the graph structure self-documenting.
+
+Grouping names MUST be consistent across the entire workflow. Do not use synonyms or near-synonyms for the same concept (e.g. do not mix `invoice_*` and `bill_*`, or `user_*` and `account_*`, when they refer to the same entity). Pick one word per concept and apply it everywhere.
+
 #### 10-workflow-unit-testing
 
 All LLM calls within workflow nodes are external API calls and MUST be mocked in unit tests per [agentme-edr-018](018-ai-llm-development-standards.md) rule `04-unit-test-mocking`. Workflow unit tests must run fully offline with no real LLM provider calls.
@@ -204,6 +223,31 @@ All TypedDict and dataclass types that represent LangGraph node or workflow stat
 - Large workflows MUST NOT use a single monolithic state that all nodes read and write. Split the state into per-phase or per-agent state types scoped to the subgraph or set of nodes that produce or consume each field.
 
 State type names SHOULD align with the agent or node names defined in rule `09-node-naming-conventions` (e.g., an agent node named `draft_doc_agent` has a state type named `draft_doc_agent_state`).
+
+**State attribute naming — grouping and consistency:**
+
+State attributes MUST follow the same grouping-prefix discipline as node names. When multiple attributes belong to the same subject, entity, or workflow phase, they MUST share a common prefix so that related fields cluster together and the state definition is self-documenting.
+
+- Use `<group>_<attribute>` for fields that belong to a specific subject or phase (e.g. `invoice_raw`, `invoice_validated`, `invoice_summary`).
+- The grouping prefix MUST be the same word used in the corresponding node names for that subject (e.g. nodes named `invoice_fetch_tool`, `invoice_validate_step` → state fields named `invoice_raw`, `invoice_validated`).
+- Do not use synonyms or near-synonyms for the same concept across attributes or across nodes and attributes (e.g. do not mix `invoice_*` fields with `bill_*` fields, or `user_*` fields with `account_*` fields when they refer to the same entity). Pick one word per concept and apply it everywhere.
+
+```python
+class document_workflow_state(TypedDict):
+    # "invoice" group — all fields related to the invoice entity
+    invoice_raw: str
+    invoice_validated: bool
+    invoice_summary: str
+
+    # "payment" group — all fields related to the payment entity
+    payment_status: str
+    payment_amount: float
+
+    # "evaluate" group — judge verdicts
+    evaluate_invoice_verdict: JudgeVerdict
+```
+
+Generic attribute names such as `data`, `result`, `output`, `info`, or `item` are FORBIDDEN unless they are top-level workflow inputs/outputs with no meaningful domain label.
 
 #### 12-workflow-naming-conventions
 
