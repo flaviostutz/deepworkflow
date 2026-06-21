@@ -3,23 +3,23 @@ from __future__ import annotations
 from deepworkflow.app.workflows.file_batch_workflow.graph_log import (
     _finding_lines,
     _finding_summary,
-    _log_evaluate_convergence_post,
-    _log_evaluate_map_batches_post,
-    _log_evaluate_quality_post,
-    _log_execute_batch_post,
-    _log_map_batches_post,
-    _log_map_batches_pre,
-    _log_plan_batch_post,
-    _log_plan_batch_pre,
+    _log_batch_evaluate_convergence_post,
+    _log_batch_evaluate_quality_post,
+    _log_batch_execute_post,
+    _log_batch_plan_post,
+    _log_batch_plan_pre,
+    _log_batch_reflect_post,
+    _log_map_evaluate_post,
+    _log_map_plan_post,
+    _log_map_plan_pre,
+    _log_map_resolve_post,
     _log_reduce_consolidate_post,
-    _log_reflect_batch_post,
-    _log_resolve_globs_post,
     _truncate,
 )
+from deepworkflow.app.workflows.file_batch_workflow.nodes.batch_output_record_step import batch_output_record_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.batch_quality_retry_step import batch_quality_retry_step
 from deepworkflow.app.workflows.file_batch_workflow.nodes.fail_step import fail_step
-from deepworkflow.app.workflows.file_batch_workflow.nodes.increment_retry_step import increment_retry_step
-from deepworkflow.app.workflows.file_batch_workflow.nodes.map_increment_retry_step import map_increment_retry_step
-from deepworkflow.app.workflows.file_batch_workflow.nodes.record_output_step import record_output_step
+from deepworkflow.app.workflows.file_batch_workflow.nodes.map_evaluate_retry_step import map_evaluate_retry_step
 from deepworkflow.shared.types import (
     BatchDefinition,
     BatchOutput,
@@ -33,73 +33,73 @@ from deepworkflow.shared.types import (
 class TestRecordBatchOutput:
     def test_records_and_advances_index(self):
         state = {
-            "current_batch_index": 0,
-            "task_file_batches": [
+            "batch_current_index": 0,
+            "map_batches": [
                 BatchDefinition(batch_files=["a.py"], batch_instructions="do it"),
             ],
-            "evaluate_quality_verdict": JudgeLevel.OK,
-            "evaluate_quality_feedbacks": [],
-            "files_read": ["a.py"],
-            "files_written": ["a.py"],
-            "execute_output": "done",
-            "batch_outputs": [],
+            "batch_evaluate_level": JudgeLevel.OK,
+            "batch_evaluate_feedbacks": [],
+            "batch_files_read": ["a.py"],
+            "batch_files_written": ["a.py"],
+            "batch_execute_output": "done",
+            "batch_results": [],
         }
-        result = record_output_step(state)
-        assert result["current_batch_index"] == 1
-        assert result["retry_count"] == 0
-        assert len(result["batch_outputs"]) == 1
-        assert result["batch_outputs"][0].task_files == ["a.py"]
-        assert result["batch_outputs"][0].evaluate_quality_verdict == JudgeLevel.OK
+        result = batch_output_record_step(state)
+        assert result["batch_current_index"] == 1
+        assert result["batch_quality_retry_count"] == 0
+        assert len(result["batch_results"]) == 1
+        assert result["batch_results"][0].batch_files == ["a.py"]
+        assert result["batch_results"][0].evaluate_level == JudgeLevel.OK
 
     def test_appends_to_existing_outputs(self):
         from deepworkflow.shared.types import BatchOutput
 
         existing = BatchOutput(
-            task_files=["x.py"],
-            evaluate_quality_verdict=JudgeLevel.OK,
-            evaluate_quality_feedbacks=[],
-            files_read=[],
-            files_written=[],
-            execute_output="prev",
+            batch_files=["x.py"],
+            evaluate_level=JudgeLevel.OK,
+            evaluate_feedbacks=[],
+            batch_files_read=[],
+            batch_files_written=[],
+            batch_execute_output="prev",
         )
         state = {
-            "current_batch_index": 1,
-            "task_file_batches": [
+            "batch_current_index": 1,
+            "map_batches": [
                 BatchDefinition(batch_files=["x.py"], batch_instructions=None),
                 BatchDefinition(batch_files=["y.py"], batch_instructions=None),
             ],
-            "evaluate_quality_verdict": JudgeLevel.INFO,
-            "evaluate_quality_feedbacks": [],
-            "batch_outputs": [existing],
-            "execute_output": "new",
+            "batch_evaluate_level": JudgeLevel.INFO,
+            "batch_evaluate_feedbacks": [],
+            "batch_results": [existing],
+            "batch_execute_output": "new",
         }
-        result = record_output_step(state)
-        assert len(result["batch_outputs"]) == 2
-        assert result["current_batch_index"] == 2
+        result = batch_output_record_step(state)
+        assert len(result["batch_results"]) == 2
+        assert result["batch_current_index"] == 2
 
 
 class TestIncrementRetry:
     def test_increments_from_zero(self):
-        result = increment_retry_step({})
-        assert result["retry_count"] == 1
-        assert result["batch_repeat_count"] == 0
-        assert result["cumulative_files_read"] == []
-        assert result["cumulative_files_written"] == []
+        result = batch_quality_retry_step({})
+        assert result["batch_quality_retry_count"] == 1
+        assert result["batch_convergence_repeat_count"] == 0
+        assert result["batch_cumulative_files_read"] == []
+        assert result["batch_cumulative_files_written"] == []
 
     def test_increments_existing(self):
-        result = increment_retry_step({"retry_count": 2})
-        assert result["retry_count"] == 3
-        assert result["batch_repeat_count"] == 0
-        assert result["cumulative_files_read"] == []
-        assert result["cumulative_files_written"] == []
+        result = batch_quality_retry_step({"batch_quality_retry_count": 2})
+        assert result["batch_quality_retry_count"] == 3
+        assert result["batch_convergence_repeat_count"] == 0
+        assert result["batch_cumulative_files_read"] == []
+        assert result["batch_cumulative_files_written"] == []
 
 
 class TestMapIncrementRetry:
     def test_increments_from_zero(self):
-        assert map_increment_retry_step({}) == {"map_retry_count": 1}
+        assert map_evaluate_retry_step({}) == {"map_evaluate_retry_count": 1}
 
     def test_increments_existing(self):
-        assert map_increment_retry_step({"map_retry_count": 1}) == {"map_retry_count": 2}
+        assert map_evaluate_retry_step({"map_evaluate_retry_count": 1}) == {"map_evaluate_retry_count": 2}
 
 
 class TestFail:
@@ -221,12 +221,12 @@ class TestLogCallbacks:
 
     def _make_batch_output(self, files: list[str] | None = None) -> BatchOutput:
         return BatchOutput(
-            task_files=files or ["a.py"],
-            evaluate_quality_verdict=JudgeLevel.OK,
-            evaluate_quality_feedbacks=[],
-            files_read=["a.py"],
-            files_written=["b.py"],
-            execute_output="done",
+            batch_files=files or ["a.py"],
+            evaluate_level=JudgeLevel.OK,
+            evaluate_feedbacks=[],
+            batch_files_read=["a.py"],
+            batch_files_written=["b.py"],
+            batch_execute_output="done",
         )
 
     def _warn_verdict(self, title: str = "issue") -> JudgeVerdict:
@@ -239,13 +239,13 @@ class TestLogCallbacks:
         return JudgeVerdict(verdict=JudgeLevel.OK, findings=[_ok_finding()])
 
     def test_resolve_globs_post_count(self):
-        result = _log_resolve_globs_post({}, {"task_files": ["a.py", "b.py"]}, WorkflowLogLevel.INFO)
+        result = _log_map_resolve_post({}, {"map_files": ["a.py", "b.py"]}, WorkflowLogLevel.INFO)
         assert result == ["2 files"]
 
     def test_map_batches_pre_info_truncates(self):
         config_mock = type("C", (), {"task_instructions": " ".join(["word"] * 50)})()
         state = {"config": config_mock}
-        lines = _log_map_batches_pre(state, WorkflowLogLevel.INFO)
+        lines = _log_map_plan_pre(state, WorkflowLogLevel.INFO)
         assert lines[0].startswith("task: ")
         assert "…" in lines[0]
 
@@ -253,106 +253,112 @@ class TestLogCallbacks:
         long_task = " ".join(["word"] * 50)
         config_mock = type("C", (), {"task_instructions": long_task})()
         state = {"config": config_mock}
-        lines = _log_map_batches_pre(state, WorkflowLogLevel.DEBUG)
+        lines = _log_map_plan_pre(state, WorkflowLogLevel.DEBUG)
         assert lines[0] == f"task: {long_task}"
 
     def test_map_batches_post_info_truncates_overview(self):
         long_overview = " ".join(["word"] * 50)
         batches = [self._make_batch(["a.py"])]
-        result = {"task_file_batches": batches, "task_overview": long_overview}
-        lines = _log_map_batches_post({}, result, WorkflowLogLevel.INFO)
+        result = {"map_batches": batches, "map_plan_overview": long_overview}
+        lines = _log_map_plan_post({}, result, WorkflowLogLevel.INFO)
         assert "…" in lines[0]
 
     def test_map_batches_post_debug_full_overview(self):
         long_overview = " ".join(["word"] * 50)
         batches = [self._make_batch(["a.py"])]
-        result = {"task_file_batches": batches, "task_overview": long_overview}
-        lines = _log_map_batches_post({}, result, WorkflowLogLevel.DEBUG)
+        result = {"map_batches": batches, "map_plan_overview": long_overview}
+        lines = _log_map_plan_post({}, result, WorkflowLogLevel.DEBUG)
         assert lines[0] == f"overview: {long_overview}"
 
     def test_map_batches_post_error_returns_empty(self):
-        assert _log_map_batches_post({}, {"error": True}, WorkflowLogLevel.INFO) == []
+        assert _log_map_plan_post({}, {"error": True}, WorkflowLogLevel.INFO) == []
 
     def test_evaluate_map_batches_post_summary_when_warning(self):
         verdict = self._warn_verdict("map issue")
-        lines = _log_evaluate_map_batches_post({}, {"map_evaluate_judge_verdict": verdict}, WorkflowLogLevel.INFO)
+        lines = _log_map_evaluate_post({}, {"map_evaluate_verdict": verdict}, WorkflowLogLevel.INFO)
         assert len(lines) >= 1
         assert "WARNING" in lines[0]
 
     def test_evaluate_map_batches_post_debug_includes_findings(self):
         verdict = self._warn_verdict("map issue")
-        lines = _log_evaluate_map_batches_post({}, {"map_evaluate_judge_verdict": verdict}, WorkflowLogLevel.DEBUG)
+        lines = _log_map_evaluate_post({}, {"map_evaluate_verdict": verdict}, WorkflowLogLevel.DEBUG)
         assert any("[WARNING]" in line for line in lines)
 
     def test_plan_batch_pre_info_truncates(self):
         long_instructions = " ".join(["word"] * 50)
         batches = [self._make_batch(["a.py"], instructions=long_instructions)]
-        state = {"current_batch_index": 0, "task_file_batches": batches}
-        lines = _log_plan_batch_pre(state, WorkflowLogLevel.INFO)
+        state = {"batch_current_index": 0, "map_batches": batches}
+        lines = _log_batch_plan_pre(state, WorkflowLogLevel.INFO)
         assert any("…" in line for line in lines)
 
     def test_plan_batch_pre_debug_full(self):
         long_instructions = " ".join(["word"] * 50)
         batches = [self._make_batch(["a.py"], instructions=long_instructions)]
-        state = {"current_batch_index": 0, "task_file_batches": batches}
-        lines = _log_plan_batch_pre(state, WorkflowLogLevel.DEBUG)
+        state = {"batch_current_index": 0, "map_batches": batches}
+        lines = _log_batch_plan_pre(state, WorkflowLogLevel.DEBUG)
         assert any(line == f"batch instructions: {long_instructions}" for line in lines)
 
     def test_plan_batch_post_info_truncates(self):
         long_plan = " ".join(["word"] * 50)
-        lines = _log_plan_batch_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.INFO)
+        lines = _log_batch_plan_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.INFO)
         assert "…" in lines[0]
 
     def test_plan_batch_post_debug_full(self):
         long_plan = " ".join(["word"] * 50)
-        lines = _log_plan_batch_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.DEBUG)
+        lines = _log_batch_plan_post({}, {"batch_plan": long_plan}, WorkflowLogLevel.DEBUG)
         assert lines[0] == f"plan: {long_plan}"
 
     def test_execute_batch_post_info_truncates(self):
         long_output = " ".join(["word"] * 50)
-        lines = _log_execute_batch_post({}, {"execute_output": long_output}, WorkflowLogLevel.INFO)
+        lines = _log_batch_execute_post({}, {"batch_execute_output": long_output}, WorkflowLogLevel.INFO)
         assert "…" in lines[0]
 
     def test_execute_batch_post_debug_full(self):
         long_output = " ".join(["word"] * 50)
-        lines = _log_execute_batch_post({}, {"execute_output": long_output}, WorkflowLogLevel.DEBUG)
+        lines = _log_batch_execute_post({}, {"batch_execute_output": long_output}, WorkflowLogLevel.DEBUG)
         assert lines[0] == f"output: {long_output}"
 
     def test_reflect_batch_post(self):
-        result = {"files_written": ["a.py", "b.py"], "files_read": ["c.py"]}
-        lines = _log_reflect_batch_post({}, result, WorkflowLogLevel.INFO)
+        result = {"batch_files_written": ["a.py", "b.py"], "batch_files_read": ["c.py"]}
+        lines = _log_batch_reflect_post({}, result, WorkflowLogLevel.INFO)
         assert lines == ["2 files written; 1 files read"]
 
     def test_evaluate_convergence_post_info_truncates(self):
         long_output = " ".join(["word"] * 100)
-        lines = _log_evaluate_convergence_post({}, {"batch_convergence_output": long_output}, WorkflowLogLevel.INFO)
+        lines = _log_batch_evaluate_convergence_post(
+            {}, {"batch_evaluate_convergence_output": long_output}, WorkflowLogLevel.INFO
+        )
         assert "…" in lines[0]
 
     def test_evaluate_convergence_post_debug_full(self):
         long_output = " ".join(["word"] * 100)
-        lines = _log_evaluate_convergence_post({}, {"batch_convergence_output": long_output}, WorkflowLogLevel.DEBUG)
+        lines = _log_batch_evaluate_convergence_post(
+            {}, {"batch_evaluate_convergence_output": long_output}, WorkflowLogLevel.DEBUG
+        )
         assert lines[0] == long_output
 
     def test_evaluate_convergence_post_verdict_summary(self):
         verdict = self._warn_verdict("convergence check")
-        lines = _log_evaluate_convergence_post({}, {"batch_convergence_verdict": verdict}, WorkflowLogLevel.INFO)
+        lines = _log_batch_evaluate_convergence_post(
+            {}, {"batch_evaluate_convergence_verdict": verdict}, WorkflowLogLevel.INFO
+        )
         assert "WARNING" in lines[0]
 
     def test_evaluate_quality_post_summary_when_warning(self):
         verdict = self._warn_verdict("quality issue")
-        lines = _log_evaluate_quality_post({}, {"evaluate_quality_judge_verdict": verdict}, WorkflowLogLevel.INFO)
+        lines = _log_batch_evaluate_quality_post({}, {"batch_evaluate_verdict": verdict}, WorkflowLogLevel.INFO)
         assert len(lines) >= 1
         assert "WARNING" in lines[0]
 
     def test_evaluate_quality_post_debug_includes_findings(self):
         verdict = self._warn_verdict("quality detail")
-        lines = _log_evaluate_quality_post({}, {"evaluate_quality_judge_verdict": verdict}, WorkflowLogLevel.DEBUG)
+        lines = _log_batch_evaluate_quality_post({}, {"batch_evaluate_verdict": verdict}, WorkflowLogLevel.DEBUG)
         assert any("[WARNING]" in line for line in lines)
 
     def test_reduce_consolidate_post(self):
         bo = self._make_batch_output()
-        state = {"batch_outputs": [bo]}
-        result = {"workflow_output": "final output"}
+        state = {"batch_results": [bo]}
+        result = {"reduce_output": "final output"}
         lines = _log_reduce_consolidate_post(state, result, WorkflowLogLevel.INFO)
         assert "output:" in lines[0]
         assert "final output" in lines[0]

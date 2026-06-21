@@ -17,9 +17,9 @@ batch results into a coherent, holistic final output following the consolidation
 
 _INPUT_TEMPLATE = """\
 Agent-specific inputs:
-- consolidation_instructions: {consolidation_instructions}
-- batch_outputs_summary:
-{batch_outputs_summary}"""
+- reduce_instructions: {reduce_instructions}
+- batch_results_summary:
+{batch_results_summary}"""
 
 _TOOL_GUIDANCE = f"""{TOOL_GUIDANCE_BASE}
 
@@ -27,31 +27,31 @@ Review the workspace to inspect the combined result of all batches before produc
 output. Use file reading tools to verify the actual state of the workspace."""
 
 _OUTPUT_FORMAT = """\
-A holistic evaluation and final consolidated output following the consolidation_instructions.
+A holistic evaluation and final consolidated output following the reduce_instructions.
 The output should synthesise all batch results into a coherent whole."""
 
 
 def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
     """Consolidate all batch outputs into a final workflow output."""
     config = state["config"]
-    batch_outputs = state.get("batch_outputs", [])
-    consolidation_instructions = state.get("consolidation_instructions", "Summarize the overall results.")
+    batch_results = state.get("batch_results", [])
+    reduce_instructions = state.get("reduce_instructions", "Summarize the overall results.")
 
     outputs_summary = []
-    for i, output in enumerate(batch_outputs):
+    for i, output in enumerate(batch_results):
         outputs_summary.append(
             f"--- Batch {i + 1} ---\n"
-            f"Files: {', '.join(output.task_files)}\n"
-            f"Verdict: {output.evaluate_quality_verdict.name}\n"
-            f"Execute output: {output.execute_output[:5000]}\n"
+            f"Files: {', '.join(output.batch_files)}\n"
+            f"Verdict: {output.evaluate_level.name}\n"
+            f"Execute output: {output.batch_execute_output[:5000]}\n"
         )
 
     prompt = build_agent_prompt(
         objective=_OBJECTIVE,
         role=_ROLE,
         input_section=_INPUT_TEMPLATE.format(
-            consolidation_instructions=consolidation_instructions,
-            batch_outputs_summary="\n".join(outputs_summary),
+            reduce_instructions=reduce_instructions,
+            batch_results_summary="\n".join(outputs_summary),
         ),
         tool_guidance=_TOOL_GUIDANCE,
         output_format=_OUTPUT_FORMAT,
@@ -66,6 +66,6 @@ def reduce_consolidate_agent(state: file_batch_workflow_state) -> dict:
 
     result = agent.invoke({"messages": STANDARD_USER_MESSAGE})
     last_message = result["messages"][-1]
-    workflow_output = last_message.content if hasattr(last_message, "content") else str(last_message)
+    reduce_output = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-    return {"workflow_output": workflow_output}
+    return {"reduce_output": reduce_output}

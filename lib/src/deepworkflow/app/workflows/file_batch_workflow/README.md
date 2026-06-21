@@ -6,64 +6,64 @@ A LangGraph workflow that processes files in batches using a Map → Plan/Execut
 
 ```mermaid
 graph TD
-    resolve_globs_step --> |static| effort_static_step
-    resolve_globs_step --> |auto| effort_analyze_auto_agent
+    map_resolve_step --> |static| map_effort_step
+    map_resolve_step --> |auto| map_effort_analyze_agent
 
-    effort_static_step --> |agent| map_batches_agent
-    effort_static_step --> |step| map_batches_step
-    effort_analyze_auto_agent --> |agent| map_batches_agent
-    effort_analyze_auto_agent --> |step| map_batches_step
+    map_effort_step --> |agent| map_plan_agent
+    map_effort_step --> |step| map_plan_step
+    map_effort_analyze_agent --> |agent| map_plan_agent
+    map_effort_analyze_agent --> |step| map_plan_step
 
-    map_batches_agent --> validate_map_batches_step
-    map_batches_step --> validate_map_batches_step
+    map_plan_agent --> map_plan_validate_step
+    map_plan_step --> map_plan_validate_step
 
-    validate_map_batches_step --> |fail| fail_step
-    validate_map_batches_step --> |retry| map_batches_agent
-    validate_map_batches_step --> |evaluate| evaluate_map_batches_agent
-    validate_map_batches_step --> |plan| plan_batch_agent
-    validate_map_batches_step --> |skip_plan| skip_batch_plan_step
+    map_plan_validate_step --> |fail| fail_step
+    map_plan_validate_step --> |retry| map_plan_agent
+    map_plan_validate_step --> |evaluate| map_evaluate_agent
+    map_plan_validate_step --> |plan| batch_plan_agent
+    map_plan_validate_step --> |skip_plan| batch_plan_skip_step
 
-    evaluate_map_batches_agent --> |plan| plan_batch_agent
-    evaluate_map_batches_agent --> |skip_plan| skip_batch_plan_step
-    evaluate_map_batches_agent --> |retry_or_fail| map_increment_retry_step
+    map_evaluate_agent --> |plan| batch_plan_agent
+    map_evaluate_agent --> |skip_plan| batch_plan_skip_step
+    map_evaluate_agent --> |retry_or_fail| map_evaluate_retry_step
 
-    map_increment_retry_step --> |retry| map_batches_agent
-    map_increment_retry_step --> |fail| fail_step
+    map_evaluate_retry_step --> |retry| map_plan_agent
+    map_evaluate_retry_step --> |fail| fail_step
 
-    plan_batch_agent --> execute_batch_agent
-    skip_batch_plan_step --> execute_batch_agent
-    execute_batch_agent --> |reflect| reflect_batch_agent
-    execute_batch_agent --> |skip| skip_reflect_batch_step
+    batch_plan_agent --> batch_execute_agent
+    batch_plan_skip_step --> batch_execute_agent
+    batch_execute_agent --> |reflect| batch_reflect_agent
+    batch_execute_agent --> |skip| batch_reflect_skip_step
 
-    skip_reflect_batch_step --> skip_evaluate_quality_step
+    batch_reflect_skip_step --> batch_evaluate_quality_skip_step
 
-    reflect_batch_agent --> |evaluate_convergence| evaluate_batch_convergence_agent
-    reflect_batch_agent --> |evaluate| evaluate_batch_quality_agent
-    reflect_batch_agent --> |skip| skip_evaluate_quality_step
+    batch_reflect_agent --> |evaluate_convergence| batch_evaluate_convergence_agent
+    batch_reflect_agent --> |evaluate| batch_evaluate_quality_agent
+    batch_reflect_agent --> |skip| batch_evaluate_quality_skip_step
 
-    evaluate_batch_convergence_agent --> |repeat| increment_batch_repeat_step
-    evaluate_batch_convergence_agent --> |evaluate| evaluate_batch_quality_agent
-    evaluate_batch_convergence_agent --> |skip| skip_evaluate_quality_step
+    batch_evaluate_convergence_agent --> |repeat| batch_convergence_repeat_step
+    batch_evaluate_convergence_agent --> |evaluate| batch_evaluate_quality_agent
+    batch_evaluate_convergence_agent --> |skip| batch_evaluate_quality_skip_step
 
-    increment_batch_repeat_step --> |plan| plan_batch_agent
-    increment_batch_repeat_step --> |skip_plan| skip_batch_plan_step
+    batch_convergence_repeat_step --> |plan| batch_plan_agent
+    batch_convergence_repeat_step --> |skip_plan| batch_plan_skip_step
 
-    skip_evaluate_quality_step --> record_output_step
+    batch_evaluate_quality_skip_step --> batch_output_record_step
 
-    evaluate_batch_quality_agent --> |pass| record_output_step
-    evaluate_batch_quality_agent --> |retry_or_fail| increment_retry_step
+    batch_evaluate_quality_agent --> |pass| batch_output_record_step
+    batch_evaluate_quality_agent --> |retry_or_fail| batch_quality_retry_step
 
-    increment_retry_step --> |plan| plan_batch_agent
-    increment_retry_step --> |skip_plan| skip_batch_plan_step
-    increment_retry_step --> |max_retries_exceeded| check_max_retries_policy_step
+    batch_quality_retry_step --> |plan| batch_plan_agent
+    batch_quality_retry_step --> |skip_plan| batch_plan_skip_step
+    batch_quality_retry_step --> |max_retries_exceeded| batch_quality_max_retries_step
 
-    check_max_retries_policy_step --> |fail| fail_step
-    check_max_retries_policy_step --> |record| record_output_step
+    batch_quality_max_retries_step --> |fail| fail_step
+    batch_quality_max_retries_step --> |record| batch_output_record_step
 
-    record_output_step --> |plan| plan_batch_agent
-    record_output_step --> |skip_plan| skip_batch_plan_step
-    record_output_step --> |consolidate_agent| reduce_consolidate_agent
-    record_output_step --> |consolidate_step| reduce_consolidate_step
+    batch_output_record_step --> |plan| batch_plan_agent
+    batch_output_record_step --> |skip_plan| batch_plan_skip_step
+    batch_output_record_step --> |consolidate_agent| reduce_consolidate_agent
+    batch_output_record_step --> |consolidate_step| reduce_consolidate_step
 
     reduce_consolidate_agent --> END
     reduce_consolidate_step --> END

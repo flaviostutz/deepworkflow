@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from deepworkflow.app.workflows.file_batch_workflow.routes import (
-    check_batch_convergence,
-    check_map_retries,
-    check_map_verdict,
-    check_max_retries_policy,
-    check_retries,
-    check_verdict,
-    next_batch,
-    route_after_execute,
-    route_after_map_verdict,
-    route_after_reflect,
-    route_batch_evaluate_quality,
-    route_map_evaluate_quality,
-    route_plan_batch,
+    batch_check_convergence,
+    batch_check_verdict,
+    batch_quality_check_retries,
+    batch_quality_max_retries,
+    batch_route_after_execute,
+    batch_route_after_reflect,
+    batch_route_evaluate,
+    batch_route_next,
+    batch_route_plan,
+    map_check_verdict,
+    map_evaluate_check_retries,
+    map_route_after_evaluate,
+    map_route_evaluate,
 )
 from deepworkflow.shared.config import DeepWorkflowConfig
 from deepworkflow.shared.types import (
@@ -45,12 +45,12 @@ def _make_config(**kwargs) -> DeepWorkflowConfig:
 
 def _make_effort(**kwargs) -> EffortConfig:
     defaults = {
-        "map_batches_mode": "agent",
-        "evaluate_map_max_retries": 2,
-        "evaluate_batch_quality_max_retries": 2,
-        "evaluate_batch_convergence_max_retries": 0,
-        "skip_batch_plan": False,
-        "consolidate_mode": "agent",
+        "map_plan_mode": "agent",
+        "map_evaluate_max_retries": 2,
+        "batch_evaluate_quality_max_retries": 2,
+        "batch_evaluate_convergence_max_retries": 0,
+        "batch_skip_plan": False,
+        "reduce_mode": "agent",
     }
     defaults.update(kwargs)
     return EffortConfig(**defaults)
@@ -72,82 +72,82 @@ def _ok_verdict() -> JudgeVerdict:
 
 class TestCheckMapVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
-        assert check_map_verdict(state) == "pass"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": JudgeLevel.OK}
+        assert map_check_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
-        assert check_map_verdict(state) == "retry_or_fail"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": JudgeLevel.ERROR}
+        assert map_check_verdict(state) == "retry_or_fail"
 
     def test_retry_when_verdict_is_none(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": None}
-        assert check_map_verdict(state) == "retry_or_fail"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": None}
+        assert map_check_verdict(state) == "retry_or_fail"
 
 
 class TestCheckMapRetries:
     def test_retry_when_retries_remaining(self):
-        effort = _make_effort(evaluate_map_max_retries=3)
-        state = {"effort_config": effort, "map_retry_count": 1}
-        assert check_map_retries(state) == "map_batches_agent"
+        effort = _make_effort(map_evaluate_max_retries=3)
+        state = {"effort_config": effort, "map_evaluate_retry_count": 1}
+        assert map_evaluate_check_retries(state) == "map_plan_agent"
 
     def test_fail_when_exhausted(self):
-        effort = _make_effort(evaluate_map_max_retries=2)
-        state = {"effort_config": effort, "map_retry_count": 3}
-        assert check_map_retries(state) == "fail_step"
+        effort = _make_effort(map_evaluate_max_retries=2)
+        state = {"effort_config": effort, "map_evaluate_retry_count": 3}
+        assert map_evaluate_check_retries(state) == "fail_step"
 
 
 class TestCheckVerdict:
     def test_pass_when_verdict_meets_minimum(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.OK}
-        assert check_verdict(state) == "pass"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "batch_evaluate_level": JudgeLevel.OK}
+        assert batch_check_verdict(state) == "pass"
 
     def test_pass_when_verdict_equals_minimum(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.WARNING}
-        assert check_verdict(state) == "pass"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "batch_evaluate_level": JudgeLevel.WARNING}
+        assert batch_check_verdict(state) == "pass"
 
     def test_retry_when_verdict_below_minimum(self):
-        effort = _make_effort(evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "evaluate_quality_verdict": JudgeLevel.ERROR}
-        assert check_verdict(state) == "retry_or_fail"
+        effort = _make_effort(batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "batch_evaluate_level": JudgeLevel.ERROR}
+        assert batch_check_verdict(state) == "retry_or_fail"
 
 
 class TestCheckRetries:
     def test_retry_plan_when_retries_remaining(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=3, skip_batch_plan=False)
-        state = {"effort_config": effort, "retry_count": 1}
-        assert check_retries(state) == "plan_batch_agent"
+        effort = _make_effort(batch_evaluate_quality_max_retries=3, batch_skip_plan=False)
+        state = {"effort_config": effort, "batch_quality_retry_count": 1}
+        assert batch_quality_check_retries(state) == "batch_plan_agent"
 
     def test_retry_skip_plan_when_retries_remaining(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=3, skip_batch_plan=True)
-        state = {"effort_config": effort, "retry_count": 1}
-        assert check_retries(state) == "skip_batch_plan_step"
+        effort = _make_effort(batch_evaluate_quality_max_retries=3, batch_skip_plan=True)
+        state = {"effort_config": effort, "batch_quality_retry_count": 1}
+        assert batch_quality_check_retries(state) == "batch_plan_skip_step"
 
     def test_max_retries_when_exhausted(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=2)
-        state = {"effort_config": effort, "retry_count": 3}
-        assert check_retries(state) == "max_retries_exceeded"
+        effort = _make_effort(batch_evaluate_quality_max_retries=2)
+        state = {"effort_config": effort, "batch_quality_retry_count": 3}
+        assert batch_quality_check_retries(state) == "max_retries_exceeded"
 
     def test_retry_when_zero_retries_used(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=1, skip_batch_plan=False)
-        state = {"effort_config": effort, "retry_count": 0}
-        assert check_retries(state) == "plan_batch_agent"
+        effort = _make_effort(batch_evaluate_quality_max_retries=1, batch_skip_plan=False)
+        state = {"effort_config": effort, "batch_quality_retry_count": 0}
+        assert batch_quality_check_retries(state) == "batch_plan_agent"
 
 
 class TestCheckMaxRetriesPolicy:
     def test_fail_policy(self):
-        effort = _make_effort(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL)
+        effort = _make_effort(batch_evaluate_on_max_retries=OnMaxRetriesExceeded.FAIL)
         state = {"effort_config": effort}
-        assert check_max_retries_policy(state) == "fail_step"
+        assert batch_quality_max_retries(state) == "fail_step"
 
     def test_continue_policy(self):
-        effort = _make_effort(evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE)
+        effort = _make_effort(batch_evaluate_on_max_retries=OnMaxRetriesExceeded.CONTINUE)
         state = {"effort_config": effort}
-        assert check_max_retries_policy(state) == "record_output_step"
+        assert batch_quality_max_retries(state) == "batch_output_record_step"
 
 
 class TestNextBatch:
@@ -156,147 +156,167 @@ class TestNextBatch:
             BatchDefinition(batch_files=["a"], batch_instructions=""),
             BatchDefinition(batch_files=["b"], batch_instructions=""),
         ]
-        effort = _make_effort(skip_batch_plan=False, consolidate_mode="agent")
-        state = {"current_batch_index": 0, "task_file_batches": batches, "effort_config": effort}
-        assert next_batch(state) == "plan_batch_agent"
+        effort = _make_effort(batch_skip_plan=False, reduce_mode="agent")
+        state = {"batch_current_index": 0, "map_batches": batches, "effort_config": effort}
+        assert batch_route_next(state) == "batch_plan_agent"
 
     def test_more_batches_skip_plan(self):
         batches = [
             BatchDefinition(batch_files=["a"], batch_instructions=""),
             BatchDefinition(batch_files=["b"], batch_instructions=""),
         ]
-        effort = _make_effort(skip_batch_plan=True, consolidate_mode="agent")
-        state = {"current_batch_index": 0, "task_file_batches": batches, "effort_config": effort}
-        assert next_batch(state) == "skip_batch_plan_step"
+        effort = _make_effort(batch_skip_plan=True, reduce_mode="agent")
+        state = {"batch_current_index": 0, "map_batches": batches, "effort_config": effort}
+        assert batch_route_next(state) == "batch_plan_skip_step"
 
     def test_last_batch_consolidate_agent(self):
         batches = [BatchDefinition(batch_files=["a"], batch_instructions="")]
-        effort = _make_effort(consolidate_mode="agent")
-        state = {"current_batch_index": 0, "task_file_batches": batches, "effort_config": effort}
-        assert next_batch(state) == "reduce_consolidate_agent"
+        effort = _make_effort(reduce_mode="agent")
+        state = {"batch_current_index": 1, "map_batches": batches, "effort_config": effort}
+        assert batch_route_next(state) == "reduce_consolidate_agent"
 
     def test_last_batch_consolidate_static(self):
         batches = [BatchDefinition(batch_files=["a"], batch_instructions="")]
-        effort = _make_effort(consolidate_mode="static")
-        state = {"current_batch_index": 0, "task_file_batches": batches, "effort_config": effort}
-        assert next_batch(state) == "reduce_consolidate_step"
+        effort = _make_effort(reduce_mode="static")
+        state = {"batch_current_index": 1, "map_batches": batches, "effort_config": effort}
+        assert batch_route_next(state) == "reduce_consolidate_step"
 
 
 class TestRouteMapJudge:
     def test_evaluate_when_max_retries_nonzero(self):
-        effort = _make_effort(evaluate_map_max_retries=2)
-        assert route_map_evaluate_quality({"effort_config": effort}) == "evaluate"
+        effort = _make_effort(map_evaluate_max_retries=2)
+        assert map_route_evaluate({"effort_config": effort}) == "evaluate"
 
     def test_skip_when_max_retries_zero(self):
-        effort = _make_effort(evaluate_map_max_retries=0)
-        assert route_map_evaluate_quality({"effort_config": effort}) == "skip"
+        effort = _make_effort(map_evaluate_max_retries=0)
+        assert map_route_evaluate({"effort_config": effort}) == "skip"
 
 
 class TestRouteBatchJudge:
     def test_evaluate_when_max_retries_nonzero(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=2)
-        assert route_batch_evaluate_quality({"effort_config": effort}) == "evaluate"
+        effort = _make_effort(batch_evaluate_quality_max_retries=2)
+        assert batch_route_evaluate({"effort_config": effort}) == "evaluate"
 
     def test_skip_when_max_retries_zero(self):
-        effort = _make_effort(evaluate_batch_quality_max_retries=0)
-        assert route_batch_evaluate_quality({"effort_config": effort}) == "skip"
+        effort = _make_effort(batch_evaluate_quality_max_retries=0)
+        assert batch_route_evaluate({"effort_config": effort}) == "skip"
 
 
 class TestRouteAfterReflect:
     def test_evaluate_convergence_when_convergence_retries_set(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=2)
-        assert route_after_reflect({"effort_config": effort}) == "evaluate_convergence"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=2)
+        assert batch_route_after_reflect({"effort_config": effort}) == "evaluate_convergence"
 
     def test_evaluate_convergence_even_when_quality_zero(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=1, evaluate_batch_quality_max_retries=0)
-        assert route_after_reflect({"effort_config": effort}) == "evaluate_convergence"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=1, batch_evaluate_quality_max_retries=0)
+        assert batch_route_after_reflect({"effort_config": effort}) == "evaluate_convergence"
 
     def test_evaluate_when_no_convergence_and_quality_not_skipped(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=0, evaluate_batch_quality_max_retries=2)
-        assert route_after_reflect({"effort_config": effort}) == "evaluate"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=0, batch_evaluate_quality_max_retries=2)
+        assert batch_route_after_reflect({"effort_config": effort}) == "evaluate"
 
     def test_skip_when_no_convergence_and_quality_zero(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=0, evaluate_batch_quality_max_retries=0)
-        assert route_after_reflect({"effort_config": effort}) == "skip"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=0, batch_evaluate_quality_max_retries=0)
+        assert batch_route_after_reflect({"effort_config": effort}) == "skip"
 
 
 class TestCheckBatchConvergence:
     def test_repeat_when_not_converged_and_below_ceiling(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=3, evaluate_batch_quality_max_retries=1)
-        state = {"effort_config": effort, "batch_convergence_verdict": _warning_verdict(), "batch_repeat_count": 1}
-        assert check_batch_convergence(state) == "repeat"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=3, batch_evaluate_quality_max_retries=1)
+        state = {
+            "effort_config": effort,
+            "batch_evaluate_convergence_verdict": _warning_verdict(),
+            "batch_convergence_repeat_count": 1,
+        }
+        assert batch_check_convergence(state) == "repeat"
 
     def test_evaluate_when_not_converged_but_at_ceiling(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=2, evaluate_batch_quality_max_retries=1)
-        state = {"effort_config": effort, "batch_convergence_verdict": _warning_verdict(), "batch_repeat_count": 2}
-        assert check_batch_convergence(state) == "evaluate"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=2, batch_evaluate_quality_max_retries=1)
+        state = {
+            "effort_config": effort,
+            "batch_evaluate_convergence_verdict": _warning_verdict(),
+            "batch_convergence_repeat_count": 2,
+        }
+        assert batch_check_convergence(state) == "evaluate"
 
     def test_evaluate_when_converged_and_quality_not_skipped(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=3, evaluate_batch_quality_max_retries=1)
-        state = {"effort_config": effort, "batch_convergence_verdict": _ok_verdict(), "batch_repeat_count": 0}
-        assert check_batch_convergence(state) == "evaluate"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=3, batch_evaluate_quality_max_retries=1)
+        state = {
+            "effort_config": effort,
+            "batch_evaluate_convergence_verdict": _ok_verdict(),
+            "batch_convergence_repeat_count": 0,
+        }
+        assert batch_check_convergence(state) == "evaluate"
 
     def test_skip_when_converged_and_quality_zero(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=3, evaluate_batch_quality_max_retries=0)
-        state = {"effort_config": effort, "batch_convergence_verdict": _ok_verdict(), "batch_repeat_count": 0}
-        assert check_batch_convergence(state) == "skip"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=3, batch_evaluate_quality_max_retries=0)
+        state = {
+            "effort_config": effort,
+            "batch_evaluate_convergence_verdict": _ok_verdict(),
+            "batch_convergence_repeat_count": 0,
+        }
+        assert batch_check_convergence(state) == "skip"
 
     def test_skip_when_at_ceiling_and_quality_zero(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=2, evaluate_batch_quality_max_retries=0)
-        state = {"effort_config": effort, "batch_convergence_verdict": _warning_verdict(), "batch_repeat_count": 2}
-        assert check_batch_convergence(state) == "skip"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=2, batch_evaluate_quality_max_retries=0)
+        state = {
+            "effort_config": effort,
+            "batch_evaluate_convergence_verdict": _warning_verdict(),
+            "batch_convergence_repeat_count": 2,
+        }
+        assert batch_check_convergence(state) == "skip"
 
     def test_repeat_count_missing_defaults_to_zero(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=1, evaluate_batch_quality_max_retries=1)
-        state = {"effort_config": effort, "batch_convergence_verdict": _warning_verdict()}
-        assert check_batch_convergence(state) == "repeat"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=1, batch_evaluate_quality_max_retries=1)
+        state = {"effort_config": effort, "batch_evaluate_convergence_verdict": _warning_verdict()}
+        assert batch_check_convergence(state) == "repeat"
 
     def test_no_verdict_treats_as_converged(self):
-        effort = _make_effort(evaluate_batch_convergence_max_retries=3, evaluate_batch_quality_max_retries=1)
-        state = {"effort_config": effort, "batch_repeat_count": 0}
-        assert check_batch_convergence(state) == "evaluate"
+        effort = _make_effort(batch_evaluate_convergence_max_retries=3, batch_evaluate_quality_max_retries=1)
+        state = {"effort_config": effort, "batch_convergence_repeat_count": 0}
+        assert batch_check_convergence(state) == "evaluate"
 
 
 class TestRoutePlanBatch:
     def test_plan_agent_when_skip_false(self):
-        effort = _make_effort(skip_batch_plan=False)
-        assert route_plan_batch({"effort_config": effort}) == "plan_batch_agent"
+        effort = _make_effort(batch_skip_plan=False)
+        assert batch_route_plan({"effort_config": effort}) == "batch_plan_agent"
 
     def test_skip_step_when_skip_true(self):
-        effort = _make_effort(skip_batch_plan=True)
-        assert route_plan_batch({"effort_config": effort}) == "skip_batch_plan_step"
+        effort = _make_effort(batch_skip_plan=True)
+        assert batch_route_plan({"effort_config": effort}) == "batch_plan_skip_step"
 
 
 class TestRouteAfterMapVerdict:
     def test_plan_agent_when_pass_and_no_skip_plan(self):
-        effort = _make_effort(skip_batch_plan=False, evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
-        assert route_after_map_verdict(state) == "plan_batch_agent"
+        effort = _make_effort(batch_skip_plan=False, batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": JudgeLevel.OK}
+        assert map_route_after_evaluate(state) == "batch_plan_agent"
 
     def test_skip_batch_plan_step_when_pass_and_skip_plan(self):
-        effort = _make_effort(skip_batch_plan=True, evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.OK}
-        assert route_after_map_verdict(state) == "skip_batch_plan_step"
+        effort = _make_effort(batch_skip_plan=True, batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": JudgeLevel.OK}
+        assert map_route_after_evaluate(state) == "batch_plan_skip_step"
 
     def test_retry_or_fail_when_verdict_below_min(self):
-        effort = _make_effort(skip_batch_plan=False, evaluate_quality_min=JudgeLevel.WARNING)
-        state = {"effort_config": effort, "map_evaluate_quality_verdict": JudgeLevel.ERROR}
-        assert route_after_map_verdict(state) == "retry_or_fail"
+        effort = _make_effort(batch_skip_plan=False, batch_evaluate_min=JudgeLevel.WARNING)
+        state = {"effort_config": effort, "map_evaluate_level": JudgeLevel.ERROR}
+        assert map_route_after_evaluate(state) == "retry_or_fail"
 
 
 class TestRouteAfterExecute:
     def test_skip_reflect_when_skip_reflect_true(self):
-        effort = _make_effort(skip_reflect=True)
-        assert route_after_execute({"effort_config": effort}) == "skip_reflect_batch_step"
+        effort = _make_effort(batch_skip_reflect=True)
+        assert batch_route_after_execute({"effort_config": effort}) == "batch_reflect_skip_step"
 
     def test_reflect_agent_when_skip_reflect_false(self):
-        effort = _make_effort(skip_reflect=False)
-        assert route_after_execute({"effort_config": effort}) == "reflect_batch_agent"
+        effort = _make_effort(batch_skip_reflect=False)
+        assert batch_route_after_execute({"effort_config": effort}) == "batch_reflect_agent"
 
     def test_level_0_routes_to_skip_reflect(self):
         effort = EffortConfig(level=0)
-        assert route_after_execute({"effort_config": effort}) == "skip_reflect_batch_step"
+        assert batch_route_after_execute({"effort_config": effort}) == "batch_reflect_skip_step"
 
     def test_level_1_routes_to_reflect_agent(self):
         effort = EffortConfig(level=1)
-        assert route_after_execute({"effort_config": effort}) == "reflect_batch_agent"
+        assert batch_route_after_execute({"effort_config": effort}) == "batch_reflect_agent"

@@ -4,7 +4,7 @@ from deepworkflow.app.workflows.file_batch_workflow.nodes import parse_evaluate_
 from deepworkflow.shared.types import JudgeLevel
 
 
-class TestParseJudgeOutput:
+class TestParseEvaluateOutput:
     def test_valid_json(self):
         content = '{"evaluate_quality_feedbacks": [{"file": "a.py", "type": "WARNING", "description": "issue"}], "evaluate_quality_verdict": "WARNING"}'
         verdict, feedbacks = _parse_evaluate_output(content)

@@ -16,39 +16,41 @@ class TestCollectEffortOverrides:
         assert overrides["max_files_per_batch"] is None
 
     def test_string_mode_fields_passed_through(self):
-        overrides = _collect_effort_overrides({"map_batches_mode": "agent", "consolidate_mode": "static"})
-        assert overrides["map_batches_mode"] == "agent"
-        assert overrides["consolidate_mode"] == "static"
+        overrides = _collect_effort_overrides({"map_plan_mode": "agent", "reduce_mode": "static"})
+        assert overrides["map_plan_mode"] == "agent"
+        assert overrides["reduce_mode"] == "static"
 
     def test_int_retry_fields_converted(self):
-        overrides = _collect_effort_overrides({
-            "evaluate_map_max_retries": "2",
-            "evaluate_batch_convergence_max_retries": "1",
-            "evaluate_batch_quality_max_retries": "3",
-        })
-        assert overrides["evaluate_map_max_retries"] == 2
-        assert overrides["evaluate_batch_convergence_max_retries"] == 1
-        assert overrides["evaluate_batch_quality_max_retries"] == 3
+        overrides = _collect_effort_overrides(
+            {
+                "map_evaluate_max_retries": "2",
+                "batch_evaluate_convergence_max_retries": "1",
+                "batch_evaluate_quality_max_retries": "3",
+            }
+        )
+        assert overrides["map_evaluate_max_retries"] == 2
+        assert overrides["batch_evaluate_convergence_max_retries"] == 1
+        assert overrides["batch_evaluate_quality_max_retries"] == 3
 
     def test_skip_batch_plan_converted_to_bool(self):
-        assert _collect_effort_overrides({"skip_batch_plan": True})["skip_batch_plan"] is True
-        assert _collect_effort_overrides({"skip_batch_plan": False})["skip_batch_plan"] is False
+        assert _collect_effort_overrides({"batch_skip_plan": True})["batch_skip_plan"] is True
+        assert _collect_effort_overrides({"batch_skip_plan": False})["batch_skip_plan"] is False
 
     def test_evaluate_quality_min_converted_to_enum(self):
-        overrides = _collect_effort_overrides({"evaluate_quality_min": "WARNING"})
-        assert overrides["evaluate_quality_min"] == JudgeLevel.WARNING
+        overrides = _collect_effort_overrides({"batch_evaluate_min": "WARNING"})
+        assert overrides["batch_evaluate_min"] == JudgeLevel.WARNING
 
     def test_evaluate_quality_min_case_insensitive(self):
-        overrides = _collect_effort_overrides({"evaluate_quality_min": "ok"})
-        assert overrides["evaluate_quality_min"] == JudgeLevel.OK
+        overrides = _collect_effort_overrides({"batch_evaluate_min": "ok"})
+        assert overrides["batch_evaluate_min"] == JudgeLevel.OK
 
     def test_evaluate_quality_on_max_retries_converted_to_enum(self):
-        overrides = _collect_effort_overrides({"evaluate_quality_on_max_retries": "continue"})
-        assert overrides["evaluate_quality_on_max_retries"] == OnMaxRetriesExceeded.CONTINUE
+        overrides = _collect_effort_overrides({"batch_evaluate_on_max_retries": "continue"})
+        assert overrides["batch_evaluate_on_max_retries"] == OnMaxRetriesExceeded.CONTINUE
 
     def test_evaluate_quality_batch_instructions_passed_through(self):
-        overrides = _collect_effort_overrides({"evaluate_quality_batch_instructions": "check for bugs"})
-        assert overrides["evaluate_quality_batch_instructions"] == "check for bugs"
+        overrides = _collect_effort_overrides({"batch_evaluate_quality_instructions": "check for bugs"})
+        assert overrides["batch_evaluate_quality_instructions"] == "check for bugs"
 
     def test_unknown_keys_ignored(self):
         overrides = _collect_effort_overrides({"type": "static", "level": 3, "unknown_key": "value"})
@@ -86,14 +88,16 @@ class TestBuildEffortConfig:
         assert result.type == "auto"
 
     def test_overrides_applied(self):
-        result = _build_effort_config({
-            "effort": {
-                "level": 3,
-                "map_batches_mode": "agent",
-                "evaluate_batch_quality_max_retries": 2,
-                "evaluate_quality_min": "OK",
+        result = _build_effort_config(
+            {
+                "effort": {
+                    "level": 3,
+                    "map_plan_mode": "agent",
+                    "batch_evaluate_quality_max_retries": 2,
+                    "batch_evaluate_min": "OK",
+                }
             }
-        })
-        assert result.map_batches_mode == "agent"
-        assert result.evaluate_batch_quality_max_retries == 2
-        assert result.evaluate_quality_min == JudgeLevel.OK
+        )
+        assert result.map_plan_mode == "agent"
+        assert result.batch_evaluate_quality_max_retries == 2
+        assert result.batch_evaluate_min == JudgeLevel.OK

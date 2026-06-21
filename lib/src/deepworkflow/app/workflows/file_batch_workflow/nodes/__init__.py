@@ -67,7 +67,7 @@ def parse_evaluate_output(content: str) -> tuple[JudgeLevel, list[EvaluateFeedba
     return verdict, feedbacks
 
 
-def parse_judge_output(content: str) -> JudgeVerdict:
+def parse_evaluate_verdict(content: str) -> JudgeVerdict:
     """Parse a judge node's JSON output into a JudgeVerdict (rule 13 schema).
 
     Expected JSON::

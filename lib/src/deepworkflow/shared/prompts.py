@@ -9,16 +9,16 @@ from pathlib import Path
 WORKFLOW_CONTEXT = """\
 == Workflow Context ==
 This workflow processes files in batches:
-resolve_globs_step → map_batches_agent → evaluate_map_batches_agent
-→ [per-batch: plan_batch_agent → execute_batch_agent → reflect_batch_agent
-→ (evaluate_batch_convergence_agent →)* evaluate_batch_quality_agent [evaluate quality]]
+map_resolve_step → map_plan_agent → map_evaluate_agent
+→ [per-batch: batch_plan_agent → batch_execute_agent → batch_reflect_agent
+→ (batch_evaluate_convergence_agent →)* batch_evaluate_quality_agent [evaluate quality]]
 → reduce_consolidate_agent
 
 Two evaluators operate in the per-batch loop:
-- evaluate_batch_convergence_agent: lightweight check after each pass — decides
+- batch_evaluate_convergence_agent: lightweight check after each pass — decides
   whether the batch has converged and whether to loop back for another pass (when
-  batch_repeat_max > 0); does NOT evaluate final quality.
-- evaluate_batch_quality_agent (evaluate quality): final check after all passes complete —
+  batch_evaluate_convergence_max_retries > 0); does NOT evaluate final quality.
+- batch_evaluate_quality_agent (evaluate quality): final check after all passes complete —
   evaluates the overall quality of the batch result and decides whether to accept or retry."""
 
 GENERAL_BEHAVIOR = """\

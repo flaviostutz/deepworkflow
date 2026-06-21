@@ -7,71 +7,69 @@ from deepworkflow.shared.types import EffortConfig, JudgeLevel, OnMaxRetriesExce
 # ---------------------------------------------------------------------------
 
 
-def route_effort_config(state: dict) -> Literal["effort_analyze_auto_agent", "effort_static_step"]:
+def map_route_effort(state: dict) -> Literal["map_effort_analyze_agent", "map_effort_step"]:
     """Route: derive effort config automatically or use the user-supplied one."""
     if state["config"].effort.type == "auto":
-        return "effort_analyze_auto_agent"
-    return "effort_static_step"
+        return "map_effort_analyze_agent"
+    return "map_effort_step"
 
 
-def route_map_batches_mode(state: dict) -> Literal["map_batches_agent", "map_batches_step"]:
+def map_route_plan_mode(state: dict) -> Literal["map_plan_agent", "map_plan_step"]:
     """Route: use LLM agent or deterministic algorithm for batch splitting."""
-    if state["effort_config"].map_batches_mode == "static":
-        return "map_batches_step"
-    return "map_batches_agent"
+    if state["effort_config"].map_plan_mode == "static":
+        return "map_plan_step"
+    return "map_plan_agent"
 
 
-def route_validate_map_limits(
+def map_plan_route_validate(
     state: dict,
-) -> Literal[
-    "fail_step", "map_batches_agent", "evaluate_map_batches_agent", "plan_batch_agent", "skip_batch_plan_step"
-]:
-    """Route after validate_map_batches_step.
+) -> Literal["fail_step", "map_plan_agent", "map_evaluate_agent", "batch_plan_agent", "batch_plan_skip_step"]:
+    """Route after map_plan_validate_step.
 
     - If an error is present and map mode is static → hard-fail (algorithm is broken).
     - If an error is present and map mode is agent and retries remain → retry the LLM.
     - If an error is present and map mode is agent but retries exhausted → fail.
-    - If no error and evaluate_map_max_retries == 0 → skip map eval, go straight to plan routing.
-    - If no error and evaluate_map_max_retries > 0 → run LLM map evaluator.
+    - If no error and map_evaluate_max_retries == 0 → skip map eval, go straight to plan routing.
+    - If no error and map_evaluate_max_retries > 0 → run LLM map evaluator.
     """
     effort_config = state["effort_config"]
     error = state.get("error")
 
     if error:
-        if effort_config.map_batches_mode == "static":
+        if effort_config.map_plan_mode == "static":
             return "fail_step"
         # agent mode: retry if budget allows
-        map_retry_count = state.get("map_retry_count", 0)
-        if map_retry_count < effort_config.evaluate_map_max_retries:
-            return "map_batches_agent"
+        map_retry_count = state.get("map_evaluate_retry_count", 0)
+        if map_retry_count < effort_config.map_evaluate_max_retries:
+            return "map_plan_agent"
         return "fail_step"
 
-    if effort_config.evaluate_map_max_retries == 0:
-        return _route_plan(effort_config)
-    return "evaluate_map_batches_agent"
+    if effort_config.map_evaluate_max_retries == 0:
+        return _batch_route_plan(effort_config)
+    return "map_evaluate_agent"
 
 
-def route_plan_batch(state: dict) -> Literal["plan_batch_agent", "skip_batch_plan_step"]:
+def batch_route_plan(state: dict) -> Literal["batch_plan_agent", "batch_plan_skip_step"]:
     """Route: run plan agent or inject planning instruction into execute prompt."""
-    return _route_plan(state["effort_config"])
+    return _batch_route_plan(state["effort_config"])
 
 
-def route_after_execute(state: dict) -> Literal["reflect_batch_agent", "skip_reflect_batch_step"]:
+def batch_route_after_execute(state: dict) -> Literal["batch_reflect_agent", "batch_reflect_skip_step"]:
     """Route: run reflect agent or skip it (level 0 one-shot mode)."""
-    if state["effort_config"].skip_reflect:
-        return "skip_reflect_batch_step"
-    return "reflect_batch_agent"
+    if state["effort_config"].batch_skip_reflect:
+        return "batch_reflect_skip_step"
+    return "batch_reflect_agent"
 
 
-def _route_plan(effort_config: EffortConfig) -> Literal["plan_batch_agent", "skip_batch_plan_step"]:  # type: ignore[misc]
-    if effort_config.skip_batch_plan:
-        return "skip_batch_plan_step"
-    return "plan_batch_agent"
+def _batch_route_plan(effort_config: EffortConfig) -> Literal["batch_plan_agent", "batch_plan_skip_step"]:  # type: ignore[misc]
+    if effort_config.batch_skip_plan:
+        return "batch_plan_skip_step"
+    return "batch_plan_agent"
 
 
-def route_consolidate_mode(state: dict) -> Literal["reduce_consolidate_agent", "reduce_consolidate_step"]:
+def reduce_route_mode(state: dict) -> Literal["reduce_consolidate_agent", "reduce_consolidate_step"]:
     """Route: use LLM agent or static formatter for consolidation."""
-    if state["effort_config"].consolidate_mode == "static":
+    if state["effort_config"].reduce_mode == "static":
         return "reduce_consolidate_step"
     return "reduce_consolidate_agent"
 
@@ -81,46 +79,46 @@ def route_consolidate_mode(state: dict) -> Literal["reduce_consolidate_agent", "
 # ---------------------------------------------------------------------------
 
 
-def route_map_evaluate_quality(state: dict) -> Literal["skip", "evaluate"]:
-    """Route: skip map evaluate_quality when evaluate_map_max_retries is 0."""
-    if state["effort_config"].evaluate_map_max_retries == 0:
+def map_route_evaluate(state: dict) -> Literal["skip", "evaluate"]:
+    """Route: skip map evaluate when map_evaluate_max_retries is 0."""
+    if state["effort_config"].map_evaluate_max_retries == 0:
         return "skip"
     return "evaluate"
 
 
-def check_map_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
-    """Route: check if the map evaluate_quality verdict meets minimum threshold."""
+def map_check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
+    """Route: check if the map evaluate verdict meets minimum threshold."""
     effort_config = state["effort_config"]
-    verdict = state.get("map_evaluate_quality_verdict")
-    if verdict is not None and verdict >= effort_config.evaluate_quality_min:
+    verdict = state.get("map_evaluate_level")
+    if verdict is not None and verdict >= effort_config.batch_evaluate_min:
         return "pass"
     return "retry_or_fail"
 
 
-def route_after_map_verdict(
+def map_route_after_evaluate(
     state: dict,
-) -> Literal["plan_batch_agent", "skip_batch_plan_step", "retry_or_fail"]:
-    """Combined route after evaluate_map_batches_agent.
+) -> Literal["batch_plan_agent", "batch_plan_skip_step", "retry_or_fail"]:
+    """Combined route after map_evaluate_agent.
 
     Returns the plan routing target when the verdict passes, or "retry_or_fail" otherwise.
     This avoids needing an extra intermediate step between map-eval pass and plan routing.
     """
-    if check_map_verdict(state) == "pass":
-        return _route_plan(state["effort_config"])
+    if map_check_verdict(state) == "pass":
+        return _batch_route_plan(state["effort_config"])
     return "retry_or_fail"
 
 
-def check_map_retries(state: dict) -> Literal["map_batches_agent", "fail_step"]:
+def map_evaluate_check_retries(state: dict) -> Literal["map_plan_agent", "fail_step"]:
     """Route: retry map if retries remaining, otherwise fail.
 
-    ``evaluate_map_max_retries=N`` allows N retries after the first attempt.
+    ``map_evaluate_max_retries=N`` allows N retries after the first attempt.
     The increment step runs before this check, so exhaustion occurs when
-    ``map_retry_count > evaluate_map_max_retries``.
+    ``map_evaluate_retry_count > map_evaluate_max_retries``.
     """
     effort_config = state["effort_config"]
-    retry_count = state.get("map_retry_count", 0)
-    if retry_count <= effort_config.evaluate_map_max_retries:
-        return "map_batches_agent"
+    retry_count = state.get("map_evaluate_retry_count", 0)
+    if retry_count <= effort_config.map_evaluate_max_retries:
+        return "map_plan_agent"
     return "fail_step"
 
 
@@ -129,81 +127,83 @@ def check_map_retries(state: dict) -> Literal["map_batches_agent", "fail_step"]:
 # ---------------------------------------------------------------------------
 
 
-def route_batch_evaluate_quality(state: dict) -> Literal["skip", "evaluate"]:
-    """Route: skip batch evaluate_quality when evaluate_batch_quality_max_retries is 0."""
-    if state["effort_config"].evaluate_batch_quality_max_retries == 0:
+def batch_route_evaluate(state: dict) -> Literal["skip", "evaluate"]:
+    """Route: skip batch evaluate quality when batch_evaluate_quality_max_retries is 0."""
+    if state["effort_config"].batch_evaluate_quality_max_retries == 0:
         return "skip"
     return "evaluate"
 
 
-def route_after_reflect(state: dict) -> Literal["evaluate_convergence", "evaluate", "skip"]:
+def batch_route_after_reflect(state: dict) -> Literal["evaluate_convergence", "evaluate", "skip"]:
     """Route after reflect.
 
-    Goes to evaluate_batch_convergence_agent when evaluate_batch_convergence_max_retries > 0,
+    Goes to batch_evaluate_convergence_agent when batch_evaluate_convergence_max_retries > 0,
     else evaluates quality or skips.
     """
     effort_config = state["effort_config"]
-    if effort_config.evaluate_batch_convergence_max_retries > 0:
+    if effort_config.batch_evaluate_convergence_max_retries > 0:
         return "evaluate_convergence"
-    if effort_config.evaluate_batch_quality_max_retries == 0:
+    if effort_config.batch_evaluate_quality_max_retries == 0:
         return "skip"
     return "evaluate"
 
 
-def check_batch_convergence(state: dict) -> Literal["repeat", "evaluate", "skip"]:
-    """Route after evaluate_batch_convergence_agent.
+def batch_check_convergence(state: dict) -> Literal["repeat", "evaluate", "skip"]:
+    """Route after batch_evaluate_convergence_agent.
 
     Repeats if the judge verdict is non-OK (WARNING) and ceiling not reached,
     else evaluates quality or skips.
     """
     effort_config = state["effort_config"]
-    judge = state.get("batch_convergence_verdict")
+    judge = state.get("batch_evaluate_convergence_verdict")
     needs_repeat = judge is not None and judge.verdict != JudgeLevel.OK
-    batch_repeat_count = state.get("batch_repeat_count", 0)
-    if needs_repeat and batch_repeat_count < effort_config.evaluate_batch_convergence_max_retries:
+    batch_convergence_repeat_count = state.get("batch_convergence_repeat_count", 0)
+    if needs_repeat and batch_convergence_repeat_count < effort_config.batch_evaluate_convergence_max_retries:
         return "repeat"
-    if effort_config.evaluate_batch_quality_max_retries == 0:
+    if effort_config.batch_evaluate_quality_max_retries == 0:
         return "skip"
     return "evaluate"
 
 
-def check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
-    """Route: check if batch evaluate_quality verdict meets minimum threshold."""
+def batch_check_verdict(state: dict) -> Literal["pass", "retry_or_fail"]:
+    """Route: check if batch evaluate quality verdict meets minimum threshold."""
     effort_config = state["effort_config"]
-    verdict = state["evaluate_quality_verdict"]
-    if verdict >= effort_config.evaluate_quality_min:
+    verdict = state["batch_evaluate_level"]
+    if verdict >= effort_config.batch_evaluate_min:
         return "pass"
     return "retry_or_fail"
 
 
-def check_retries(state: dict) -> Literal["plan_batch_agent", "skip_batch_plan_step", "max_retries_exceeded"]:
+def batch_quality_check_retries(
+    state: dict,
+) -> Literal["batch_plan_agent", "batch_plan_skip_step", "max_retries_exceeded"]:
     """Route: retry plan if retries remaining, otherwise handle max retries.
 
-    ``evaluate_batch_quality_max_retries=N`` allows N retries after the first attempt.
+    ``batch_evaluate_quality_max_retries=N`` allows N retries after the first attempt.
     The increment step runs before this check, so exhaustion occurs when
-    ``retry_count > evaluate_batch_quality_max_retries``.
+    ``batch_quality_retry_count > batch_evaluate_quality_max_retries``.
     """
     effort_config = state["effort_config"]
-    retry_count = state.get("retry_count", 0)
-    if retry_count <= effort_config.evaluate_batch_quality_max_retries:
-        return _route_plan(effort_config)
+    retry_count = state.get("batch_quality_retry_count", 0)
+    if retry_count <= effort_config.batch_evaluate_quality_max_retries:
+        return _batch_route_plan(effort_config)
     return "max_retries_exceeded"
 
 
-def check_max_retries_policy(state: dict) -> Literal["fail_step", "record_output_step"]:
-    """Route: apply evaluate_quality_on_max_retries policy."""
+def batch_quality_max_retries(state: dict) -> Literal["fail_step", "batch_output_record_step"]:
+    """Route: apply batch_evaluate_on_max_retries policy."""
     effort_config = state["effort_config"]
-    if effort_config.evaluate_quality_on_max_retries == OnMaxRetriesExceeded.FAIL:
+    if effort_config.batch_evaluate_on_max_retries == OnMaxRetriesExceeded.FAIL:
         return "fail_step"
-    return "record_output_step"
+    return "batch_output_record_step"
 
 
-def next_batch(
+def batch_route_next(
     state: dict,
-) -> Literal["plan_batch_agent", "skip_batch_plan_step", "reduce_consolidate_agent", "reduce_consolidate_step"]:
+) -> Literal["batch_plan_agent", "batch_plan_skip_step", "reduce_consolidate_agent", "reduce_consolidate_step"]:
     """Route: move to next batch or proceed to consolidation."""
-    batch_index = state["current_batch_index"]
-    batches = state["task_file_batches"]
-    if batch_index < len(batches) - 1:
-        return _route_plan(state["effort_config"])
-    return route_consolidate_mode(state)
+    batch_index = state["batch_current_index"]
+    batches = state["map_batches"]
+    if batch_index < len(batches):
+        return _batch_route_plan(state["effort_config"])
+    return reduce_route_mode(state)

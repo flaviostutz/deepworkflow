@@ -13,21 +13,21 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     config: DeepWorkflowConfig
     effort_config: EffortConfig
 
-    # Map: setup
+    # Map: setup  # noqa: ERA001
     map_files: list[str]
 
-    # Map: plan
+    # Map: plan  # noqa: ERA001
     map_batches: list[BatchDefinition]
     map_plan_overview: str
     reduce_instructions: str
     batch_evaluate_quality_instructions: str
 
-    # Map: evaluate
+    # Map: evaluate  # noqa: ERA001
     map_evaluate_level: JudgeLevel
     map_evaluate_verdict: JudgeVerdict
     map_evaluate_retry_count: int
 
-    # Batch: tracking
+    # Batch: tracking  # noqa: ERA001
     batch_current_index: int
     batch_quality_retry_count: int
     batch_convergence_repeat_count: int
@@ -49,7 +49,7 @@ class file_batch_workflow_state(TypedDict, total=False):  # noqa: N801
     batch_cumulative_files_written: list[str]
     batch_cumulative_output: str
 
-    # Batch: outputs
+    # Batch: outputs  # noqa: ERA001
     batch_results: list[BatchOutput]
 
     # Reduce

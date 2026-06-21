@@ -57,25 +57,25 @@ def _format_verdict_lines(verdict: JudgeVerdict, log_level: WorkflowLogLevel) ->
     return _finding_lines(verdict, log_level)
 
 
-# resolve_globs_step
-def _log_resolve_globs_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    files = result.get("task_files") or []
+# map_resolve_step
+def _log_map_resolve_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    files = result.get("map_files") or []
     return [f"{len(files)} files"]
 
 
-# map_batches_agent
-def _log_map_batches_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
+# map_plan_agent / map_plan_step
+def _log_map_plan_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
     config = state.get("config")
     task = config.task_instructions if config is not None else ""
     text = task if log_level == WorkflowLogLevel.DEBUG else _truncate(task, 30)
     return [f"task: {text}"]
 
 
-def _log_map_batches_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+def _log_map_plan_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     if result.get("error"):
         return []
-    batches = result.get("task_file_batches") or []
-    overview = result.get("task_overview", "")
+    batches = result.get("map_batches") or []
+    overview = result.get("map_plan_overview", "")
     overview_text = overview if log_level == WorkflowLogLevel.DEBUG else _truncate(overview, 30)
     counts = "/".join(str(len(b.batch_files)) for b in batches)
     return [
@@ -84,92 +84,90 @@ def _log_map_batches_post(state: dict, result: dict, log_level: WorkflowLogLevel
     ]
 
 
-# evaluate_map_batches_agent
-def _log_evaluate_map_batches_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    verdict = result.get("map_evaluate_judge_verdict")
+# map_evaluate_agent
+def _log_map_evaluate_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    verdict = result.get("map_evaluate_verdict")
     if verdict is not None:
         return _format_verdict_lines(verdict, log_level)
-    raw_verdict = result.get("map_evaluate_quality_verdict")
+    raw_verdict = result.get("map_evaluate_level")
     return [raw_verdict.name if raw_verdict is not None else "unknown"]
 
 
-# plan_batch_agent
-def _log_plan_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
-    idx = state.get("current_batch_index", 0)
-    batches = state.get("task_file_batches") or []
-    retry_count = state.get("retry_count", 0)
-    batch_repeat_count = state.get("batch_repeat_count", 0)
+# batch_plan_agent
+def _log_batch_plan_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
+    idx = state.get("batch_current_index", 0)
+    batches = state.get("map_batches") or []
+    retry_count = state.get("batch_quality_retry_count", 0)
+    batch_convergence_repeat_count = state.get("batch_convergence_repeat_count", 0)
     config = state.get("config")
 
     total = len(batches)
-    loop_count = retry_count + batch_repeat_count
+    loop_count = retry_count + batch_convergence_repeat_count
     loop_suffix = f" - loop {loop_count}" if loop_count > 0 else ""
     lines = [f">> PLAN BATCH {idx + 1}/{total}{loop_suffix}"]
 
     task_instructions = config.task_instructions if config is not None else ""
     lines.append(f"task instructions: {_truncate(task_instructions, 20)}")
 
-    task_overview = state.get("task_overview", "")
-    lines.append(f"task overview: {_truncate(task_overview or '', 20)}")
+    map_plan_overview = state.get("map_plan_overview", "")
+    lines.append(f"map plan overview: {_truncate(map_plan_overview or '', 20)}")
 
     instructions = batches[idx].batch_instructions if idx < len(batches) else ""
     inst_text = (instructions or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(instructions or "", 20)
     lines.append(f"batch instructions: {inst_text}")
 
-    judge_verdict = state.get("evaluate_quality_judge_verdict")
+    judge_verdict = state.get("batch_evaluate_verdict")
     if retry_count > 0 and judge_verdict is not None and judge_verdict.findings:
         feedback = "; ".join(f"{f.level.name}: {f.title}" for f in judge_verdict.findings if f.level.name != "OK")
         fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
         lines.append(f"evaluation feedback: {fb_text}")
 
-    cumulative_execute_output = state.get("cumulative_execute_output", "")
-    if cumulative_execute_output:
+    batch_cumulative_output = state.get("batch_cumulative_output", "")
+    if batch_cumulative_output:
         prev_text = (
-            cumulative_execute_output
-            if log_level == WorkflowLogLevel.DEBUG
-            else _truncate(cumulative_execute_output, 20)
+            batch_cumulative_output if log_level == WorkflowLogLevel.DEBUG else _truncate(batch_cumulative_output, 20)
         )
         lines.append(f"previous output: {prev_text}")
 
     return lines
 
 
-def _log_plan_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+def _log_batch_plan_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     plan = result.get("batch_plan", "")
     text = plan if log_level == WorkflowLogLevel.DEBUG else _truncate(plan, 20)
     return [f"plan: {text}"]
 
 
-# effort_analyze_auto_agent
-def _log_analyze_effort_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+# map_effort_analyze_agent
+def _log_map_effort_analyze_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     ec = result.get("effort_config")
     if ec is None:
         return ["effort_config not set"]
     return [
-        f"map={ec.map_batches_mode} consolidate={ec.consolidate_mode} "
-        f"eval_map_retries={ec.evaluate_map_max_retries} "
-        f"eval_quality_retries={ec.evaluate_batch_quality_max_retries}"
+        f"map={ec.map_plan_mode} reduce={ec.reduce_mode} "
+        f"map_eval_retries={ec.map_evaluate_max_retries} "
+        f"batch_eval_quality_retries={ec.batch_evaluate_quality_max_retries}"
     ]
 
 
-# execute_batch_agent
-def _log_execute_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
-    idx = state.get("current_batch_index", 0)
-    batches = state.get("task_file_batches") or []
-    retry_count = state.get("retry_count", 0)
-    batch_repeat_count = state.get("batch_repeat_count", 0)
+# batch_execute_agent
+def _log_batch_execute_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:
+    idx = state.get("batch_current_index", 0)
+    batches = state.get("map_batches") or []
+    retry_count = state.get("batch_quality_retry_count", 0)
+    batch_convergence_repeat_count = state.get("batch_convergence_repeat_count", 0)
     config = state.get("config")
 
     total = len(batches)
-    loop_count = retry_count + batch_repeat_count
+    loop_count = retry_count + batch_convergence_repeat_count
     loop_suffix = f" - loop {loop_count}" if loop_count > 0 else ""
     lines = [f">> EXECUTE BATCH {idx + 1}/{total}{loop_suffix}"]
 
     task_instructions = config.task_instructions if config is not None else ""
     lines.append(f"task instructions: {_truncate(task_instructions, 20)}")
 
-    task_overview = state.get("task_overview", "")
-    lines.append(f"task overview: {_truncate(task_overview or '', 20)}")
+    map_plan_overview = state.get("map_plan_overview", "")
+    lines.append(f"map plan overview: {_truncate(map_plan_overview or '', 20)}")
 
     instructions = batches[idx].batch_instructions if idx < len(batches) else ""
     lines.append(f"batch instructions: {_truncate(instructions or '', 20)}")
@@ -178,63 +176,58 @@ def _log_execute_batch_pre(state: dict, log_level: WorkflowLogLevel) -> list[str
     plan_text = (batch_plan or "") if log_level == WorkflowLogLevel.DEBUG else _truncate(batch_plan or "", 20)
     lines.append(f"batch plan: {plan_text}")
 
-    judge_verdict = state.get("evaluate_quality_judge_verdict")
+    judge_verdict = state.get("batch_evaluate_verdict")
     if retry_count > 0 and judge_verdict is not None and judge_verdict.findings:
         feedback = "; ".join(f"{f.level.name}: {f.title}" for f in judge_verdict.findings if f.level.name != "OK")
         fb_text = feedback if log_level == WorkflowLogLevel.DEBUG else _truncate(feedback, 20)
         lines.append(f"evaluation feedback: {fb_text}")
 
-    cumulative_execute_output = state.get("cumulative_execute_output", "")
-    if cumulative_execute_output:
+    batch_cumulative_output = state.get("batch_cumulative_output", "")
+    if batch_cumulative_output:
         prev_text = (
-            cumulative_execute_output
-            if log_level == WorkflowLogLevel.DEBUG
-            else _truncate(cumulative_execute_output, 20)
+            batch_cumulative_output if log_level == WorkflowLogLevel.DEBUG else _truncate(batch_cumulative_output, 20)
         )
         lines.append(f"previous output: {prev_text}")
 
     return lines
 
 
-def _log_execute_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    output = result.get("execute_output", "")
+def _log_batch_execute_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    output = result.get("batch_execute_output", "")
     text = output if log_level == WorkflowLogLevel.DEBUG else _truncate(output, 20)
     return [f"output: {text}"]
 
 
-# reflect_batch_agent
-def _log_reflect_batch_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    written = result.get("files_written") or []
-    read = result.get("files_read") or []
+# batch_reflect_agent
+def _log_batch_reflect_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    written = result.get("batch_files_written") or []
+    read = result.get("batch_files_read") or []
     return [f"{len(written)} files written; {len(read)} files read"]
 
 
-# evaluate_batch_convergence_agent
-def _log_evaluate_convergence_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    verdict = result.get("batch_convergence_verdict")
+# batch_evaluate_convergence_agent
+def _log_batch_evaluate_convergence_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    verdict = result.get("batch_evaluate_convergence_verdict")
     if verdict is not None:
         return _format_verdict_lines(verdict, log_level)
-    raw = result.get("batch_convergence_output", "")
+    raw = result.get("batch_evaluate_convergence_output", "")
     text = raw if log_level == WorkflowLogLevel.DEBUG else _truncate(raw, 50)
     return [text]
 
 
-# evaluate_batch_quality_agent
-def _log_evaluate_quality_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    config = state.get("config")
+# batch_evaluate_quality_agent
+def _log_batch_evaluate_quality_pre(state: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
     effort_config = state.get("effort_config")
     instructions = ""
-    if effort_config is not None and effort_config.evaluate_quality_batch_instructions:
-        instructions = effort_config.evaluate_quality_batch_instructions
-    elif config is not None:
-        instructions = getattr(config.effort, "evaluate_quality_batch_instructions", "") or ""
+    if effort_config is not None and effort_config.batch_evaluate_quality_instructions:
+        instructions = effort_config.batch_evaluate_quality_instructions
     return [f"evaluation instructions: {_truncate(instructions, 20)}"]
 
 
-def _log_evaluate_quality_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    verdict = result.get("evaluate_quality_judge_verdict")
+def _log_batch_evaluate_quality_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
+    verdict = result.get("batch_evaluate_verdict")
     if verdict is None:
-        raw_verdict = result.get("evaluate_quality_verdict")
+        raw_verdict = result.get("batch_evaluate_level")
         return [f"result: {raw_verdict.name if raw_verdict is not None else 'unknown'}"]
 
     summary = _finding_summary(verdict)
@@ -249,12 +242,12 @@ def _log_evaluate_quality_post(state: dict, result: dict, log_level: WorkflowLog
     return lines
 
 
-# reduce_consolidate_agent
+# reduce_consolidate_agent / reduce_consolidate_step
 def _log_reduce_consolidate_post(state: dict, result: dict, log_level: WorkflowLogLevel) -> list[str]:  # noqa: ARG001
-    output = result.get("workflow_output", "")
-    batch_outputs = state.get("batch_outputs") or []
-    total_read = sum(len(b.files_read) for b in batch_outputs)
-    total_written = sum(len(b.files_written) for b in batch_outputs)
+    output = result.get("reduce_output", "")
+    batch_results = state.get("batch_results") or []
+    total_read = sum(len(b.batch_files_read) for b in batch_results)
+    total_written = sum(len(b.batch_files_written) for b in batch_results)
     lines = ["output:\n" + (output or "")]
     lines.append(f"{total_read} files read; {total_written} files written")
     return lines

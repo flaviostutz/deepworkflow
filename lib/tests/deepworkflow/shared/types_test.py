@@ -71,16 +71,16 @@ class TestBatchDefinition:
 class TestBatchOutput:
     def test_creation(self):
         output = BatchOutput(
-            task_files=["a.py", "b.py"],
-            evaluate_quality_verdict=JudgeLevel.OK,
-            evaluate_quality_feedbacks=[],
-            files_read=["a.py"],
-            files_written=[],
-            execute_output="All good",
+            batch_files=["a.py", "b.py"],
+            evaluate_level=JudgeLevel.OK,
+            evaluate_feedbacks=[],
+            batch_files_read=["a.py"],
+            batch_files_written=[],
+            batch_execute_output="All good",
         )
-        assert output.task_files == ["a.py", "b.py"]
-        assert output.evaluate_quality_verdict == JudgeLevel.OK
-        assert output.execute_output == "All good"
+        assert output.batch_files == ["a.py", "b.py"]
+        assert output.evaluate_level == JudgeLevel.OK
+        assert output.batch_execute_output == "All good"
 
 
 class TestWorkflowResult:

@@ -65,17 +65,17 @@ def _build_config(task_instructions: str) -> DeepWorkflowConfig:
         model=_model_factory,
         workspace_write_option=WriteOption.READ_ONLY,
         effort=EffortConfig(
-            map_batches_mode="static",
+            map_plan_mode="static",
             max_batches=1,
             max_files_per_batch=None,
-            evaluate_map_max_retries=0,
-            skip_batch_plan=False,
-            evaluate_batch_convergence_max_retries=5,
-            evaluate_batch_quality_max_retries=5,
-            consolidate_mode="static",
-            evaluate_quality_min=JudgeLevel.INFO,
-            evaluate_quality_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
-            evaluate_quality_batch_instructions=None,
+            map_evaluate_max_retries=0,
+            batch_skip_plan=False,
+            batch_evaluate_convergence_max_retries=5,
+            batch_evaluate_quality_max_retries=5,
+            reduce_mode="static",
+            batch_evaluate_min=JudgeLevel.INFO,
+            batch_evaluate_on_max_retries=OnMaxRetriesExceeded.CONTINUE,
+            batch_evaluate_quality_instructions=None,
         ),
         task_files=["**/*.py"],
         log_level=WorkflowLogLevel.DEBUG,
@@ -150,6 +150,7 @@ def _write_eval_report(run: Any, similarity: float, passed: bool) -> None:  # no
 
 def run_eval() -> None:
     """Run the simple evaluation slice."""
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment("deepworkflow-simple")
     task_instructions, expected_output = _load_dataset()
     config = _build_config(task_instructions)
@@ -159,7 +160,7 @@ def run_eval() -> None:
 
     with mlflow.start_run(run_name="simple-eval") as run:
         mlflow.log_param("task_instructions", config.task_instructions)
-        mlflow.log_param("evaluate_quality_min", config.effort.evaluate_quality_min.name)
+        mlflow.log_param("batch_evaluate_min", config.effort.batch_evaluate_min.name)
         mlflow.log_param("write_option", config.workspace_write_option.value)
 
         try:

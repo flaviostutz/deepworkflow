@@ -49,15 +49,15 @@ class TestDeepWorkflowConfig:
             workspace_write_option=WriteOption.WRITE_ANY,
             effort=EffortConfig(
                 level=5,
-                evaluate_quality_on_max_retries=OnMaxRetriesExceeded.FAIL,
-                evaluate_quality_min=JudgeLevel.OK,
-                evaluate_quality_batch_instructions="Output MUST be valid",
+                batch_evaluate_on_max_retries=OnMaxRetriesExceeded.FAIL,
+                batch_evaluate_min=JudgeLevel.OK,
+                batch_evaluate_quality_instructions="Output MUST be valid",
             ),
             task_files=["a.py", "b.py"],
             max_failure_retries=2,
         )
         assert config.task_files == ["a.py", "b.py"]
-        assert config.effort.evaluate_quality_batch_instructions == "Output MUST be valid"
+        assert config.effort.batch_evaluate_quality_instructions == "Output MUST be valid"
 
     def test_immutable(self):
         config = _make_config()
@@ -76,7 +76,7 @@ class TestDeepWorkflowConfig:
 
     def test_effort_auto_with_options_raises(self):
         with pytest.raises(ValueError, match="no options can be set when type='auto'"):
-            EffortConfig(type="auto", evaluate_quality_min=JudgeLevel.WARNING)
+            EffortConfig(type="auto", batch_evaluate_min=JudgeLevel.WARNING)
 
 
 class TestModelRef:
@@ -89,51 +89,51 @@ class TestModelRef:
 class TestResolveEffortConfig:
     def test_level_1_all_static(self):
         ec = resolveEffortConfig(1)
-        assert ec.map_batches_mode == "static"
-        assert ec.consolidate_mode == "static"
-        assert ec.evaluate_map_max_retries == 0
-        assert ec.evaluate_batch_quality_max_retries == 0
-        assert ec.evaluate_batch_convergence_max_retries == 0
-        assert ec.skip_batch_plan is True
-        assert ec.skip_reflect is False
+        assert ec.map_plan_mode == "static"
+        assert ec.reduce_mode == "static"
+        assert ec.map_evaluate_max_retries == 0
+        assert ec.batch_evaluate_quality_max_retries == 0
+        assert ec.batch_evaluate_convergence_max_retries == 0
+        assert ec.batch_skip_plan is True
+        assert ec.batch_skip_reflect is False
         assert ec.max_batches == 1
 
     def test_level_0_one_shot(self):
         ec = resolveEffortConfig(0)
-        assert ec.map_batches_mode == "static"
-        assert ec.consolidate_mode == "static"
-        assert ec.evaluate_map_max_retries == 0
-        assert ec.evaluate_batch_quality_max_retries == 0
-        assert ec.evaluate_batch_convergence_max_retries == 0
-        assert ec.skip_batch_plan is True
-        assert ec.skip_reflect is True
+        assert ec.map_plan_mode == "static"
+        assert ec.reduce_mode == "static"
+        assert ec.map_evaluate_max_retries == 0
+        assert ec.batch_evaluate_quality_max_retries == 0
+        assert ec.batch_evaluate_convergence_max_retries == 0
+        assert ec.batch_skip_plan is True
+        assert ec.batch_skip_reflect is True
         assert ec.max_batches == 1
 
     def test_level_10_all_agent(self):
         ec = resolveEffortConfig(10)
-        assert ec.map_batches_mode == "agent"
-        assert ec.consolidate_mode == "agent"
-        assert ec.evaluate_map_max_retries == 10
-        assert ec.evaluate_batch_quality_max_retries == 10
-        assert ec.evaluate_batch_convergence_max_retries == 10
-        assert ec.skip_batch_plan is False
+        assert ec.map_plan_mode == "agent"
+        assert ec.reduce_mode == "agent"
+        assert ec.map_evaluate_max_retries == 10
+        assert ec.batch_evaluate_quality_max_retries == 10
+        assert ec.batch_evaluate_convergence_max_retries == 10
+        assert ec.batch_skip_plan is False
 
     def test_level_4_flips_to_agent(self):
         ec = resolveEffortConfig(4)
-        assert ec.map_batches_mode == "agent"
-        assert ec.consolidate_mode == "agent"
+        assert ec.map_plan_mode == "agent"
+        assert ec.reduce_mode == "agent"
 
     def test_level_3_still_static(self):
         ec = resolveEffortConfig(3)
-        assert ec.map_batches_mode == "static"
+        assert ec.map_plan_mode == "static"
 
     def test_level_6_plan_enabled(self):
         ec = resolveEffortConfig(6)
-        assert ec.skip_batch_plan is False
+        assert ec.batch_skip_plan is False
 
     def test_level_5_plan_skipped(self):
         ec = resolveEffortConfig(5)
-        assert ec.skip_batch_plan is True
+        assert ec.batch_skip_plan is True
 
     def test_invalid_level_raises(self):
         with pytest.raises(ValueError, match="level must be between 0 and 10"):

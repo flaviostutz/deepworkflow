@@ -29,32 +29,32 @@ class TestReduceConsolidateAgent:
             "deepworkflow.app.workflows.file_batch_workflow.nodes.reduce_consolidate_agent.create_agent",
             "consolidated result",
         )
-        batch_outputs = [
+        batch_results = [
             BatchOutput(
-                task_files=["a.py"],
-                evaluate_quality_verdict=JudgeLevel.OK,
-                evaluate_quality_feedbacks=[],
-                files_read=["a.py"],
-                files_written=[],
-                execute_output="done",
+                batch_files=["a.py"],
+                evaluate_level=JudgeLevel.OK,
+                evaluate_feedbacks=[],
+                batch_files_read=["a.py"],
+                batch_files_written=[],
+                batch_execute_output="done",
             ),
             BatchOutput(
-                task_files=["b.py"],
-                evaluate_quality_verdict=JudgeLevel.WARNING,
-                evaluate_quality_feedbacks=[],
-                files_read=["b.py"],
-                files_written=[],
-                execute_output="partial",
+                batch_files=["b.py"],
+                evaluate_level=JudgeLevel.WARNING,
+                evaluate_feedbacks=[],
+                batch_files_read=["b.py"],
+                batch_files_written=[],
+                batch_execute_output="partial",
             ),
         ]
         result = reduce_consolidate_agent(
             {
                 "config": _make_config(),
-                "batch_outputs": batch_outputs,
-                "consolidation_instructions": "summarize all results",
+                "batch_results": batch_results,
+                "reduce_instructions": "summarize all results",
             }
         )
-        assert result["workflow_output"] == "consolidated result"
+        assert result["reduce_output"] == "consolidated result"
 
     def test_empty_batch_outputs(self, mocker):
         mock_deep_agent(
@@ -62,5 +62,5 @@ class TestReduceConsolidateAgent:
             "deepworkflow.app.workflows.file_batch_workflow.nodes.reduce_consolidate_agent.create_agent",
             "nothing to consolidate",
         )
-        result = reduce_consolidate_agent({"config": _make_config(), "batch_outputs": []})
-        assert result["workflow_output"] == "nothing to consolidate"
+        result = reduce_consolidate_agent({"config": _make_config(), "batch_results": []})
+        assert result["reduce_output"] == "nothing to consolidate"

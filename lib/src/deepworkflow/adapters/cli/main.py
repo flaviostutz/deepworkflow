@@ -130,7 +130,7 @@ def _build_config(
     )
 
 
-def _collect_effort_overrides(ec_raw: dict) -> dict:
+def _collect_effort_overrides(ec_raw: dict) -> dict:  # noqa: C901
     """Extract explicitly-set EffortConfig detail fields from a raw YAML dict."""
     from deepworkflow.shared.types import JudgeLevel, OnMaxRetriesExceeded
 
@@ -141,25 +141,27 @@ def _collect_effort_overrides(ec_raw: dict) -> dict:
         if key in ec_raw:
             overrides[key] = ec_raw[key]  # None or int
 
-    for key in ("map_batches_mode", "consolidate_mode", "evaluate_quality_batch_instructions"):
+    for key in ("map_plan_mode", "reduce_mode", "batch_evaluate_quality_instructions"):
         if key in ec_raw:
             overrides[key] = ec_raw[key]
 
     for key in (
-        "evaluate_map_max_retries",
-        "evaluate_batch_convergence_max_retries",
-        "evaluate_batch_quality_max_retries",
+        "map_evaluate_max_retries",
+        "batch_evaluate_convergence_max_retries",
+        "batch_evaluate_quality_max_retries",
     ):
         if key in ec_raw:
             overrides[key] = int(ec_raw[key])
 
-    if "skip_batch_plan" in ec_raw:
-        overrides["skip_batch_plan"] = bool(ec_raw["skip_batch_plan"])
-    if "evaluate_quality_min" in ec_raw:
-        overrides["evaluate_quality_min"] = JudgeLevel[ec_raw["evaluate_quality_min"].upper()]
-    if "evaluate_quality_on_max_retries" in ec_raw:
-        overrides["evaluate_quality_on_max_retries"] = OnMaxRetriesExceeded(
-            ec_raw["evaluate_quality_on_max_retries"].lower()
+    if "batch_skip_plan" in ec_raw:
+        overrides["batch_skip_plan"] = bool(ec_raw["batch_skip_plan"])
+    if "batch_skip_reflect" in ec_raw:
+        overrides["batch_skip_reflect"] = bool(ec_raw["batch_skip_reflect"])
+    if "batch_evaluate_min" in ec_raw:
+        overrides["batch_evaluate_min"] = JudgeLevel[ec_raw["batch_evaluate_min"].upper()]
+    if "batch_evaluate_on_max_retries" in ec_raw:
+        overrides["batch_evaluate_on_max_retries"] = OnMaxRetriesExceeded(
+            ec_raw["batch_evaluate_on_max_retries"].lower()
         )
 
     return overrides
@@ -174,17 +176,18 @@ def _build_effort_config(raw: dict) -> EffortConfig:
           level: 3        # 0-10 preset (used when type=static)
           type: static    # "static" (default) or "auto"
           # Any EffortConfig detail field can be added to override the level default:
-          map_batches_mode: agent
+          map_plan_mode: agent
           max_batches: null
           max_files_per_batch: null
-          evaluate_map_max_retries: 2
-          skip_batch_plan: false
-          evaluate_batch_convergence_max_retries: 1
-          evaluate_batch_quality_max_retries: 2
-          consolidate_mode: agent
-          evaluate_quality_min: WARNING
-          evaluate_quality_on_max_retries: continue
-          evaluate_quality_batch_instructions: null
+          map_evaluate_max_retries: 2
+          batch_skip_plan: false
+          batch_skip_reflect: false
+          batch_evaluate_convergence_max_retries: 1
+          batch_evaluate_quality_max_retries: 2
+          reduce_mode: agent
+          batch_evaluate_min: WARNING
+          batch_evaluate_on_max_retries: continue
+          batch_evaluate_quality_instructions: null
 
     When ``type: auto``, a specialized agent analyses ``task_instructions`` and the
     workspace files to derive the optimal effort level and quality gate settings.

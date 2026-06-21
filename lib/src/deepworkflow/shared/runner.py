@@ -93,8 +93,8 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
     with mlflow.start_run(run_name=f"deepworkflow-{resolved_thread_id[:8]}", nested=nested):
         if config is not None:
             mlflow.log_param(
-                "evaluate_quality_min",
-                config.effort.evaluate_quality_min.name if config.effort.evaluate_quality_min else "N/A",
+                "batch_evaluate_min",
+                config.effort.batch_evaluate_min.name if config.effort.batch_evaluate_min else "N/A",
             )
             mlflow.log_param("effort_type", config.effort.type)
             mlflow.log_param("effort_level", config.effort.level)
@@ -120,10 +120,25 @@ def run_workflow(  # noqa: C901, PLR0912, PLR0915
             )
         else:
             mlflow.log_metric("success", 1)
-            mlflow.log_metric("output_length", len(result.get("workflow_output", "")))
+            mlflow.log_metric("output_length", len(result.get("reduce_output", "")))
+
+            map_evaluate_level = result.get("map_evaluate_level")
+            if map_evaluate_level is not None:
+                mlflow.log_metric("map_evaluate_level", map_evaluate_level.value)
+
+            mlflow.log_metric("batch_quality_retries", result.get("batch_quality_retry_count", 0))
+            mlflow.log_metric("batch_convergence_retries", result.get("batch_convergence_repeat_count", 0))
+
+            batch_results = result.get("batch_results") or []
+            if batch_results:
+                worst = min(b.evaluate_level.value for b in batch_results)
+                mlflow.log_metric("worst_batch_quality_level", worst)
+                for i, b in enumerate(batch_results):
+                    mlflow.log_metric(f"batch_{i}_quality_level", b.evaluate_level.value)
+
             workflow_result = WorkflowResult(
                 thread_id=resolved_thread_id,
-                output=result.get("workflow_output", ""),
+                output=result.get("reduce_output", ""),
                 status="completed",
             )
 

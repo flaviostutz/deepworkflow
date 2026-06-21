@@ -26,7 +26,7 @@ def _make_config(log_level: WorkflowLogLevel) -> MagicMock:
 
 
 def _make_state(log_level: WorkflowLogLevel, batch_index: int = 0) -> dict:
-    return {"config": _make_config(log_level), "current_batch_index": batch_index}
+    return {"config": _make_config(log_level), "batch_current_index": batch_index}
 
 
 class TestWrapNodeLogLevelNone:
@@ -114,8 +114,8 @@ class TestWrapNodeStats:
         stats = WorkflowStats()
         _stats_var.set(stats)
         fn = MagicMock(return_value={})
-        wrap_node("n", fn, stat="quality_retry")(_make_state(WorkflowLogLevel.NONE))
-        assert stats.quality_retries == 1
+        wrap_node("n", fn, stat="batch_quality_retry")(_make_state(WorkflowLogLevel.NONE))
+        assert stats.batch_quality_retries == 1
 
     def test_convergence_retry_incremented(self) -> None:
         from deepworkflow.shared.workflow_log import WorkflowStats, _stats_var
@@ -123,8 +123,8 @@ class TestWrapNodeStats:
         stats = WorkflowStats()
         _stats_var.set(stats)
         fn = MagicMock(return_value={})
-        wrap_node("n", fn, stat="convergence_retry")(_make_state(WorkflowLogLevel.NONE))
-        assert stats.convergence_retries == 1
+        wrap_node("n", fn, stat="batch_convergence_retry")(_make_state(WorkflowLogLevel.NONE))
+        assert stats.batch_convergence_retries == 1
 
 
 class TestNewRunStats:
@@ -137,8 +137,8 @@ class TestNewRunStats:
 
     def test_fresh_stats_zeroed(self) -> None:
         stats = new_run_stats()
-        assert stats.quality_retries == 0
-        assert stats.convergence_retries == 0
+        assert stats.batch_quality_retries == 0
+        assert stats.batch_convergence_retries == 0
         assert stats.model_invocations == 0
 
 
@@ -201,29 +201,29 @@ class TestPrintSummary:
 
     def _make_batch_output(self, verdict: JudgeLevel = JudgeLevel.OK) -> BatchOutput:
         return BatchOutput(
-            task_files=["a.py"],
-            evaluate_quality_verdict=verdict,
-            evaluate_quality_feedbacks=[],
-            files_read=["a.py"],
-            files_written=["a.py"],
-            execute_output="done",
+            batch_files=["a.py"],
+            evaluate_level=verdict,
+            evaluate_feedbacks=[],
+            batch_files_read=["a.py"],
+            batch_files_written=["a.py"],
+            batch_execute_output="done",
         )
 
     def _make_effort(self, *, evaluate_quality_skip: bool = False):
         effort = MagicMock()
-        effort.evaluate_batch_quality_max_retries = 0 if evaluate_quality_skip else 1
-        effort.evaluate_quality_min = JudgeLevel.WARNING
+        effort.batch_evaluate_quality_max_retries = 0 if evaluate_quality_skip else 1
+        effort.batch_evaluate_min = JudgeLevel.WARNING
         return effort
 
     def _make_config(self):
         config = MagicMock()
-        config.evaluate_quality_min = JudgeLevel.WARNING
+        config.batch_evaluate_min = JudgeLevel.WARNING
         return config
 
     def test_prints_summary_header(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         final_state = {
-            "batch_outputs": [self._make_batch_output()],
+            "batch_results": [self._make_batch_output()],
             "config": self._make_config(),
             "effort_config": self._make_effort(),
         }
@@ -239,7 +239,7 @@ class TestPrintSummary:
     def test_ok_status_label(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         final_state = {
-            "batch_outputs": [self._make_batch_output(JudgeLevel.OK)],
+            "batch_results": [self._make_batch_output(JudgeLevel.OK)],
             "config": self._make_config(),
             "effort_config": self._make_effort(),
         }
@@ -249,7 +249,7 @@ class TestPrintSummary:
     def test_evaluate_quality_skip_shows_na(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         final_state = {
-            "batch_outputs": [self._make_batch_output()],
+            "batch_results": [self._make_batch_output()],
             "config": self._make_config(),
             "effort_config": self._make_effort(evaluate_quality_skip=True),
         }
@@ -259,7 +259,7 @@ class TestPrintSummary:
     def test_model_tokens_shown(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         stats.tokens_by_model = {"gpt-4o": [1000, 200]}
-        final_state = {"batch_outputs": [], "config": self._make_config(), "effort_config": self._make_effort()}
+        final_state = {"batch_results": [], "config": self._make_config(), "effort_config": self._make_effort()}
         print_summary(stats, final_state, self._make_workflow_result())
         out = capsys.readouterr().out
         assert "models total" in out
@@ -270,7 +270,7 @@ class TestPrintSummary:
     def test_unknown_model_uses_ref_fallback(self, capsys: pytest.CaptureFixture) -> None:
         stats = WorkflowStats()
         stats.tokens_by_model = {"some-unknown-model-xyz": [1000000, 200000]}
-        final_state = {"batch_outputs": [], "config": self._make_config(), "effort_config": self._make_effort()}
+        final_state = {"batch_results": [], "config": self._make_config(), "effort_config": self._make_effort()}
         print_summary(stats, final_state, self._make_workflow_result())
         out = capsys.readouterr().out
         assert "~US$" in out

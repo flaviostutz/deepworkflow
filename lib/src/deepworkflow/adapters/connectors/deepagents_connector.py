@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from deepagents import create_deep_agent
 
@@ -11,38 +11,12 @@ if TYPE_CHECKING:
     from langgraph.graph.state import CompiledStateGraph
 
 
-def bind_json_mode(model: BaseChatModel) -> BaseChatModel:
-    """Return the model with JSON output enforced, in a provider-aware way.
-
-    For OpenAI and Azure OpenAI models, binds ``response_format={"type": "json_object"}``
-    at the API level so the model is constrained to emit valid JSON.
-
-    For other providers (e.g. Anthropic/Claude), returns the model unchanged because
-    they do not accept this OpenAI-specific parameter — JSON output is enforced through
-    the system prompt's ``OUTPUT_FORMAT`` instructions instead.
-
-    .. warning::
-        The returned value is a ``_ChatModelBinding`` (not a plain ``BaseChatModel``)
-        when binding is applied.  It is safe to call ``.invoke()`` on directly, but
-        must NOT be passed to ``create_agent`` / ``deepagents.create_deep_agent``
-        which require a plain ``BaseChatModel``.
-    """
-    try:
-        provider = model._get_ls_params().get("ls_provider", "")  # noqa: SLF001
-    except Exception:  # noqa: BLE001
-        provider = ""
-    if provider in ("openai", "azure"):
-        return cast("BaseChatModel", model.bind(response_format={"type": "json_object"}))
-    return model
-
-
 def create_agent(
     *,
     model: BaseChatModel,
     system_prompt: str,
     workspace_dir: str,
     write_option: WriteOption = WriteOption.READ_ONLY,
-    json_mode: bool = False,  # noqa: ARG001
 ) -> CompiledStateGraph:
     """Create a deepagent configured for use within the workflow.
 
@@ -51,10 +25,8 @@ def create_agent(
     allows callers to supply any LangChain-compatible LLM without relying on
     environment-variable-based provider detection.
 
-    The ``json_mode`` parameter is accepted for API compatibility but is not
-    applied via model binding — JSON output is enforced through the system
-    prompt's output format instructions, which the parsers already handle
-    (including markdown-fenced code blocks).
+    JSON output is enforced solely through the system prompt's ``OUTPUT_FORMAT``
+    instructions, which works for all providers.
     """
     from deepagents.backends import FilesystemBackend
 

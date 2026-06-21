@@ -18,8 +18,8 @@ model:
 workspace_write_option: "read-only"
 effort:
   level: 5
-  evaluate_quality_min: WARNING
-  evaluate_quality_on_max_retries: continue
+  batch_evaluate_min: WARNING
+  batch_evaluate_on_max_retries: continue
 log_level: info
 
 # Omit task_files to let the map agent discover relevant files automatically

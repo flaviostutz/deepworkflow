@@ -27,15 +27,28 @@ app/workflows/<workflow>/
   routes.py
   nodes/
     __init__.py
-    map_batches_agent.py
-    evaluate_map_batches_agent.py
-    plan_batch_agent.py
-    execute_batch_agent.py
-    reflect_batch_agent.py
-    evaluate_batch_progress_agent.py  # evaluate_batch_progress_agent: checks whether meaningful progress was made each pass (repeat loop only)
-    evaluate_batch_quality_agent.py   # evaluate_batch_quality_agent: final quality check after all passes complete
+    map_resolve_step.py
+    map_effort_step.py
+    map_effort_analyze_agent.py
+    map_plan_agent.py
+    map_plan_step.py
+    map_plan_validate_step.py
+    map_evaluate_agent.py
+    map_evaluate_retry_step.py
+    batch_plan_agent.py
+    batch_plan_skip_step.py
+    batch_execute_agent.py
+    batch_reflect_agent.py
+    batch_reflect_skip_step.py
+    batch_evaluate_convergence_agent.py  # lightweight per-pass convergence check
+    batch_convergence_repeat_step.py
+    batch_evaluate_quality_agent.py      # final quality check after all passes
+    batch_evaluate_quality_skip_step.py
+    batch_output_record_step.py
+    batch_quality_retry_step.py
+    batch_quality_max_retries_step.py
     reduce_consolidate_agent.py
-    resolve_globs_step.py
+    reduce_consolidate_step.py
 ```
 
 ### Rules

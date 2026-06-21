@@ -61,7 +61,7 @@ The repetition and check patterns ensure that even cheaper models follow your pr
 
 A graph of agents tailored to process a large number of files without compromising reasoning quality. The general workflow is **map → plan → execute → reflect → [repeat loop] → evaluate quality → reduce**.
 
-The repeat loop re-runs `plan → execute → reflect` while a **evaluate_batch_progress_agent** (`evaluate_batch_progress_agent`) detects meaningful work was done in the previous pass, up to a configurable ceiling (`batch_repeat_max`). Once all passes complete, a **evaluate quality** (`evaluate_batch_quality_agent`) performs the final quality check on the batch result.
+The repeat loop re-runs `plan → execute → reflect` while a **batch_evaluate_convergence_agent** detects meaningful work was done in the previous pass, up to a configurable ceiling (`batch_repeat_max`). Once all passes complete, a **batch_evaluate_quality_agent** performs the final quality check on the batch result.
 
 Built on top of [deepagents](https://github.com/langchain-ai/deepagents) — a LangGraph-based ReAct agent framework with filesystem support. Exposed as a Python library (LangGraph subgraph embeddable in other applications) and as a standalone CLI with config file.
 
@@ -88,8 +88,8 @@ config = DeepWorkflowConfig(
 
 # Option 3: Route by agent name
 AGENT_MODELS = {
-    "evaluate_batch_quality_agent": "gpt-4o-mini",
-    "evaluate_map_batches_agent": "gpt-4o-mini",
+    "batch_evaluate_quality_agent": "gpt-4o-mini",
+    "map_evaluate_agent": "gpt-4o-mini",
 }
 
 def model_factory(agent_name: str):
@@ -99,49 +99,49 @@ def model_factory(agent_name: str):
 config = DeepWorkflowConfig(model=model_factory, ...)
 ```
 
-Agent names: `map_batches_agent`, `evaluate_map_batches_agent`, `plan_batch_agent`, `execute_batch_agent`, `reflect_batch_agent`, `evaluate_batch_progress_agent`, `evaluate_batch_quality_agent`, `reduce_consolidate_agent`.
+Agent names: `map_plan_agent`, `map_evaluate_agent`, `batch_plan_agent`, `batch_execute_agent`, `batch_reflect_agent`, `batch_evaluate_convergence_agent`, `batch_evaluate_quality_agent`, `reduce_consolidate_agent`.
 
 ## Workflow Diagram
 
 ```mermaid
 graph TD
-    Start([Start]) --> ResolveGlobs[resolve_globs_step]
-    ResolveGlobs --> MapBatches[map_batches_agent]
-    MapBatches --> JudgeSkipMap{evaluate_quality_skip?}
-    JudgeSkipMap -- No --> EvalMap[evaluate_map_batches_agent]
+    Start([Start]) --> ResolveGlobs[map_resolve_step]
+    ResolveGlobs --> MapPlan[map_plan_agent]
+    MapPlan --> JudgeSkipMap{evaluate_quality_skip?}
+    JudgeSkipMap -- No --> EvalMap[map_evaluate_agent]
     JudgeSkipMap -- Yes --> BatchLoop[For each batch]
-    EvalMap --> MapOK{map verdict ≥\nevaluate_quality_min?}
+    EvalMap --> MapOK{map verdict ≥\nbatch_evaluate_min?}
     MapOK -- Yes --> BatchLoop
-    MapOK -- No --> MapIncrementRetry[map_increment_retry_step]
-    MapIncrementRetry --> MapRetries{Map retries\nremaining?}
-    MapRetries -- Yes --> MapBatches
+    MapOK -- No --> MapEvalRetry[map_evaluate_retry_step]
+    MapEvalRetry --> MapRetries{Map retries\nremaining?}
+    MapRetries -- Yes --> MapPlan
     MapRetries -- No --> Fail([fail_step])
-    BatchLoop --> Plan[plan_batch_agent]
+    BatchLoop --> Plan[batch_plan_agent]
     Plan --> Execute
 
     subgraph SharedHistory ["shared chat history (execute_messages)"]
-        Execute[execute_batch_agent]
-        Reflect[reflect_batch_agent]
-        EvalProgress[evaluate_batch_progress_agent]
+        Execute[batch_execute_agent]
+        Reflect[batch_reflect_agent]
+        EvalProgress[batch_evaluate_convergence_agent]
     end
 
     Execute --> Reflect
     Reflect --> AfterReflect{batch_repeat_max > 0?}
     AfterReflect -- Yes --> EvalProgress
-    AfterReflect -- No, evaluate_quality_skip --> SkipJudge2[skip_evaluate_quality_step]
-    AfterReflect -- No --> Evaluate[evaluate_batch_quality_agent]
+    AfterReflect -- No, evaluate_quality_skip --> SkipJudge2[batch_evaluate_quality_skip_step]
+    AfterReflect -- No --> Evaluate[batch_evaluate_quality_agent]
     EvalProgress --> ProgressCheck{progress &\nceiling not reached?}
-    ProgressCheck -- repeat --> IncrBatchRepeat[increment_batch_repeat_step]
+    ProgressCheck -- repeat --> IncrBatchRepeat[batch_convergence_repeat_step]
     IncrBatchRepeat --> Plan
     ProgressCheck -- evaluate --> Evaluate
     ProgressCheck -- skip --> SkipJudge2
-    Evaluate --> VerdictCheck{verdict ≥\nevaluate_quality_min?}
-    SkipJudge2 --> RecordOutput[record_output_step]
+    Evaluate --> VerdictCheck{verdict ≥\nbatch_evaluate_min?}
+    SkipJudge2 --> RecordOutput[batch_output_record_step]
     VerdictCheck -- Yes --> RecordOutput
-    VerdictCheck -- No --> IncrementRetry[increment_retry_step]
+    VerdictCheck -- No --> IncrementRetry[batch_quality_retry_step]
     IncrementRetry --> RetriesLeft{Retries\nremaining?}
     RetriesLeft -- Yes --> Plan
-    RetriesLeft -- No --> MaxRetryPolicy[check_max_retries_policy_step]
+    RetriesLeft -- No --> MaxRetryPolicy[batch_quality_max_retries_step]
     MaxRetryPolicy -- fail --> Fail
     MaxRetryPolicy -- continue --> RecordOutput
     RecordOutput --> NextBatch{More\nbatches?}
@@ -154,26 +154,26 @@ graph TD
 
 ### Phase 1: Map
 
-1. **resolve_globs_step** — Expand glob patterns in `task_files` into concrete file paths. Supports line-range suffixes (e.g. `file.py:10-50`). Fails if no files match.
-2. **map_batches_agent** — Read-only ReAct agent that plans the batch strategy. Given the resolved files, task instructions, and batch_size constraint, it produces:
-   - `task_overview` — high-level strategy description shared with all downstream agents
-   - `consolidation_instructions` — instructions for the final reduce phase
+1. **map_resolve_step** — Expand glob patterns in `task_files` into concrete file paths. Supports line-range suffixes (e.g. `file.py:10-50`). Fails if no files match.
+2. **map_plan_agent** — Read-only ReAct agent that plans the batch strategy. Given the resolved files, task instructions, and batch_size constraint, it produces:
+   - `map_plan_overview` — high-level strategy description shared with all downstream agents
+   - `reduce_instructions` — instructions for the final reduce phase
    - `batches` — list of `BatchDefinition(batch_files, batch_instructions)` groupings
-3. **evaluate_map_batches_agent** — Read-only evaluator that validates the map output (completeness, disjointness, instruction quality). If rejected, map_batches_agent retries with evaluate_quality feedback.
+3. **map_evaluate_agent** — Read-only evaluator that validates the map output (completeness, disjointness, instruction quality). If rejected, map_plan_agent retries with feedback.
 
 ### Phase 2: Execute (per batch)
 
 For each batch produced by the map phase:
 
-4. **plan_batch_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + task_overview + batch_instructions + evaluate quality feedback (on retry).
-5. **execute_batch_agent** — Agent with configurable write permissions that executes the plan. Stores its message history (`execute_messages`) for the agents that follow.
-6. **reflect_batch_agent** — Continues `execute_batch_agent`'s conversation thread (shares `execute_messages`) to self-report which files were read and written.
-7. **evaluate_batch_progress_agent** — *evaluate_batch_progress_agent.* Continues the same conversation thread (shares `execute_messages`) to assess whether meaningful progress was made during the current pass. When `batch_repeat_max > 0`, loops back to `plan_batch_agent` if progress was made and the repeat ceiling hasn't been reached; otherwise hands off to evaluate_quality.
-8. **evaluate_batch_quality_agent** — *evaluate_batch_quality_agent.* Read-only evaluator that evaluates the overall quality of batch execution results. If verdict < evaluate_quality_minimum, the batch retries from plan_batch_agent with evaluate quality feedback.
+4. **batch_plan_agent** — Read-only agent that produces a detailed step-by-step execution plan given task_instructions + map_plan_overview + batch_instructions + quality feedback (on retry).
+5. **batch_execute_agent** — Agent with configurable write permissions that executes the plan. Stores its message history (`execute_messages`) for the agents that follow.
+6. **batch_reflect_agent** — Continues `batch_execute_agent`'s conversation thread (shares `execute_messages`) to self-report which files were read and written.
+7. **batch_evaluate_convergence_agent** — Continues the same conversation thread (shares `execute_messages`) to assess whether meaningful progress was made during the current pass. When `batch_repeat_max > 0`, loops back to `batch_plan_agent` if progress was made and the repeat ceiling hasn't been reached; otherwise hands off to quality evaluation.
+8. **batch_evaluate_quality_agent** — Read-only evaluator that evaluates the overall quality of batch execution results. If verdict < batch_evaluate_min, the batch retries from batch_plan_agent with quality feedback.
 
 ### Phase 3: Reduce
 
-9. **reduce_consolidate_agent** — Produces the final `workflow_output` by reviewing all batch outputs using `consolidation_instructions` from the map phase.
+9. **reduce_consolidate_agent** — Produces the final `reduce_output` by reviewing all batch outputs using `reduce_instructions` from the map phase.
 
 ## Checkpointing & Resume
 
@@ -204,9 +204,9 @@ result = run_workflow(config, thread_id=result.thread_id, checkpoint_dir="./chec
 | `effort` | no | level 3 preset | Effort controls (see Full YAML Reference below) |
 | `effort.level` | no | 3 | Preset 1–10; detail fields can be added alongside |
 | `effort.type` | no | `static` | `static` (use level+fields) or `auto` (agent-derived) |
-| `effort.evaluate_quality_min` | no | `WARNING` | Min verdict to accept: `OK`, `INFO`, `WARNING`, `ERROR` |
-| `effort.evaluate_quality_on_max_retries` | no | `continue` | Behavior on exhausted retries: `fail` or `continue` |
-| `effort.evaluate_quality_batch_instructions` | no | standard | Custom quality criteria for the evaluate quality agent |
+| `effort.batch_evaluate_min` | no | `WARNING` | Min verdict to accept: `OK`, `INFO`, `WARNING`, `ERROR` |
+| `effort.batch_evaluate_on_max_retries` | no | `continue` | Behavior on exhausted retries: `fail` or `continue` |
+| `effort.batch_evaluate_quality_instructions` | no | standard | Custom quality criteria for the batch quality agent |
 | `task_files` | no | None | File paths/globs to process (supports line ranges). Omit to let agent discover files |
 | `task_files_exclude` | no | None | Glob patterns for files to always exclude from batches |
 | `max_failure_retries` | no | 0 | Retries on infrastructure failures |
@@ -224,8 +224,8 @@ model:
 workspace_write_option: read-only
 effort:
   level: 5                             # level 5 preset
-  evaluate_quality_min: WARNING        # quality fields can be added alongside level
-  evaluate_quality_on_max_retries: continue
+  batch_evaluate_min: WARNING          # quality fields can be added alongside level
+  batch_evaluate_on_max_retries: continue
 # task_files:  # Omit to let the agent discover files
 #   - "src/**/*.py"
 ```
@@ -297,7 +297,7 @@ model:
 # ---------------------------------------------------------------------------
 
 # Files or glob patterns to process. Supports line-range suffixes (file.py:10-50).
-# Omit entirely to let map_batches_agent discover files from the workspace.
+# Omit entirely to let map_plan_agent discover files from the workspace.
 task_files:
   - "src/**/*.py"
   - "docs/*.md"
@@ -325,7 +325,7 @@ workspace_write_option: read-only
 # Effort controls. Use level: N (1–10) as a shorthand for a preset, or specify
 # every field individually for fine-grained control.
 # type: static (default) — use level + optional detail fields below
-# type: auto             — an effort_analyze_auto_agent derives the config automatically;
+# type: auto             — a map_effort_analyze_agent derives the config automatically;
 #                          no other fields may be set alongside type: auto
 #   level 1 = single-batch, all evaluations skipped (fastest/cheapest)
 #   level 3 = default when effort is omitted
@@ -336,45 +336,45 @@ effort:
 
   # agent  — use an LLM to split files into batches (recommended for complex tasks)
   # static — split files deterministically by max_files_per_batch
-  map_batches_mode: agent
+  map_plan_mode: agent
 
   # Maximum number of batches (null = no limit)
   max_batches: null
 
   # Maximum files per batch.
-  # Required when map_batches_mode=static (unless max_batches=1).
+  # Required when map_plan_mode=static (unless max_batches=1).
   max_files_per_batch: 10
 
   # Max retries for the map evaluation loop. 0 = skip LLM map evaluation.
-  evaluate_map_max_retries: 2
+  map_evaluate_max_retries: 2
 
-  # When true, skip plan_batch_agent and inject planning instructions directly
-  # into execute_batch_agent (faster, less thorough).
-  skip_batch_plan: false
+  # When true, skip batch_plan_agent and inject planning instructions directly
+  # into batch_execute_agent (faster, less thorough).
+  batch_skip_plan: false
 
   # Max extra plan→execute→reflect passes per batch (0 = disabled).
-  evaluate_batch_convergence_max_retries: 1
+  batch_evaluate_convergence_max_retries: 1
 
   # Max retries for the per-batch quality evaluation loop. 0 = skip quality evaluation.
-  evaluate_batch_quality_max_retries: 2
+  batch_evaluate_quality_max_retries: 2
 
   # agent  — use an LLM agent for final result consolidation (recommended)
   # static — use a deterministic formatter
-  consolidate_mode: agent
+  reduce_mode: agent
 
   # Minimum quality verdict required to accept a batch result.
   # OK > INFO > WARNING > ERROR (higher = stricter)
-  evaluate_quality_min: WARNING
+  batch_evaluate_min: WARNING
 
-  # Behaviour when max retries are exhausted without reaching evaluate_quality_min:
+  # Behaviour when max retries are exhausted without reaching batch_evaluate_min:
   #   fail     — abort the workflow with an error
   #   continue — record the best result and move on (default)
-  evaluate_quality_on_max_retries: continue
+  batch_evaluate_on_max_retries: continue
 
-  # Custom quality criteria for evaluate_batch_quality_agent.
+  # Custom quality criteria for batch_evaluate_quality_agent.
   # Use MUST/REQUIRED/MANDATORY for ERROR findings, SHOULD/COULD for WARNING/INFO.
   # Omit to use the default quality check.
-  evaluate_quality_batch_instructions: null
+  batch_evaluate_quality_instructions: null
 
 # ---------------------------------------------------------------------------
 # Reliability & observability

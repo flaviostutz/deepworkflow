@@ -65,8 +65,8 @@ class WorkflowStats:
     """Runtime statistics accumulated during a workflow run."""
 
     start_time: float = field(default_factory=time.time)
-    quality_retries: int = 0
-    convergence_retries: int = 0
+    batch_quality_retries: int = 0
+    batch_convergence_retries: int = 0
     model_invocations: int = 0
     tokens_by_model: dict[str, list[int]] = field(default_factory=dict)
 
@@ -144,10 +144,10 @@ def wrap_node(  # noqa: PLR0913, C901
     def _increment_stat() -> None:
         s = _stats_var.get()
         if s is not None:
-            if stat == "quality_retry":
-                s.quality_retries += 1
-            elif stat == "convergence_retry":
-                s.convergence_retries += 1
+            if stat == "batch_quality_retry":
+                s.batch_quality_retries += 1
+            elif stat == "batch_convergence_retry":
+                s.batch_convergence_retries += 1
 
     def _wrapped(state: dict) -> dict:
         config = state.get("config")
@@ -157,9 +157,9 @@ def wrap_node(  # noqa: PLR0913, C901
 
         if show_batch_index:
             idx = (
-                f"{state.get('current_batch_index', '')}"
-                f":{state.get('batch_repeat_count', 0)}"
-                f":{state.get('retry_count', 0)}"
+                f"{state.get('batch_current_index', '')}"
+                f":{state.get('batch_convergence_repeat_count', 0)}"
+                f":{state.get('batch_quality_retry_count', 0)}"
             )
             display_name = f"{name}[{idx}]"
         else:
@@ -313,33 +313,33 @@ def _find_model_price(model_name: str) -> tuple[float, float] | None:
 def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: WorkflowResult) -> None:
     """Print the workflow summary block to stdout."""
     elapsed = time.time() - stats.start_time
-    batch_outputs = final_state.get("batch_outputs") or []
+    batch_results = final_state.get("batch_results") or []
     config = final_state.get("config")
 
     # Determine overall result label
     if workflow_result.status == "failed":
         result_label = "FAILED"
-    elif batch_outputs and config is not None:
+    elif batch_results and config is not None:
         effort_config = final_state.get("effort_config")
-        worst = min((b.evaluate_quality_verdict for b in batch_outputs), default=None)
-        min_quality = effort_config.evaluate_quality_min if effort_config is not None else None
+        worst = min((b.evaluate_level for b in batch_results), default=None)
+        min_quality = effort_config.batch_evaluate_min if effort_config is not None else None
         result_label = "WARNING" if (worst is not None and min_quality is not None and worst < min_quality) else "OK"
     else:
         result_label = "OK"
 
     # Worst quality verdict label
     effort_config = final_state.get("effort_config")
-    evaluate_quality_skipped = (
-        (effort_config.evaluate_batch_quality_max_retries == 0) if effort_config is not None else False
+    batch_evaluate_quality_skipped = (
+        (effort_config.batch_evaluate_quality_max_retries == 0) if effort_config is not None else False
     )
-    evaluate_quality_str = (
+    batch_evaluate_quality_str = (
         "N/A"
-        if evaluate_quality_skipped or not batch_outputs
-        else min(b.evaluate_quality_verdict for b in batch_outputs).name
+        if batch_evaluate_quality_skipped or not batch_results
+        else min(b.evaluate_level for b in batch_results).name
     )
 
-    total_files_read = sum(len(b.files_read) for b in batch_outputs)
-    total_files_written = sum(len(b.files_written) for b in batch_outputs)
+    total_files_read = sum(len(b.batch_files_read) for b in batch_results)
+    total_files_written = sum(len(b.batch_files_written) for b in batch_results)
 
     total_in = sum(v[0] for v in stats.tokens_by_model.values())
     total_out = sum(v[1] for v in stats.tokens_by_model.values())
@@ -363,10 +363,10 @@ def print_summary(stats: WorkflowStats, final_state: dict, workflow_result: Work
     lines = [
         "> summary:",
         f"  result: {result_label}",
-        f"  evaluate quality: {evaluate_quality_str}",
+        f"  batch evaluate quality: {batch_evaluate_quality_str}",
         f"  total time: {elapsed:.0f}s",
-        f"  total quality retries: {stats.quality_retries}",
-        f"  total convergence retries: {stats.convergence_retries}",
+        f"  total batch quality retries: {stats.batch_quality_retries}",
+        f"  total batch convergence retries: {stats.batch_convergence_retries}",
         f"  total files read: {total_files_read}",
         f"  total files written: {total_files_written}",
         f"  model invocations: {stats.model_invocations}",
